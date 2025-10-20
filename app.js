@@ -33,6 +33,10 @@ function setupEventListeners() {
             switchTab(tab.dataset.tab);
         });
     });
+    
+    // Medication management
+    document.getElementById('addMedicationBtn').addEventListener('click', showAddMedicationForm);
+    document.getElementById('saveMedicationBtn').addEventListener('click', saveMedication);
 }
 
 // Save settings
@@ -217,7 +221,7 @@ function updateSummary() {
 }
 
 // Switch tabs
-async function switchTab(tabName) {
+function switchTab(tabName) {
     // Update active tab
     document.querySelectorAll('#mainTabs .nav-link').forEach(t => t.classList.remove('active'));
     document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
@@ -229,7 +233,10 @@ async function switchTab(tabName) {
         document.getElementById('medicationsList').style.display = 'block';
     } else if (tabName === 'forecast') {
         document.getElementById('forecastView').style.display = 'block';
-        await loadForecast();
+        loadForecast();
+    } else if (tabName === 'manage') {
+        document.getElementById('manageView').style.display = 'block';
+        loadManageMedications();
     }
 }
 
@@ -303,4 +310,165 @@ function createForecastItem(med) {
 function formatDate(dateString) {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+// ==================== MEDICATION MANAGEMENT ====================
+
+// Show add medication form
+function showAddMedicationForm() {
+    document.getElementById('medicationFormTitle').textContent = 'Add New Medication';
+    document.getElementById('editMedId').value = '';
+    document.getElementById('medName').value = '';
+    document.getElementById('medCommonName').value = '';
+    document.getElementById('medStrength').value = '';
+    document.getElementById('medQtyRepeat').value = '';
+    document.getElementById('medPrice').value = '';
+    new bootstrap.Modal(document.getElementById('medicationFormModal')).show();
+}
+
+// Save medication (add or edit)
+async function saveMedication() {
+    const medId = document.getElementById('editMedId').value;
+    const medData = {
+        MedicationName: document.getElementById('medName').value.trim(),
+        CommonName: document.getElementById('medCommonName').value.trim(),
+        MedicationStrength: document.getElementById('medStrength').value.trim(),
+        QtyRepeat: parseInt(document.getElementById('medQtyRepeat').value),
+        Price: parseFloat(document.getElementById('medPrice').value) || null
+    };
+    
+    // Validation
+    if (!medData.MedicationName || !medData.CommonName || !medData.MedicationStrength || !medData.QtyRepeat) {
+        alert('Please fill in all required fields');
+        return;
+    }
+    
+    try {
+        const url = medId ? `${API_URL}/medications/${medId}` : `${API_URL}/medications`;
+        const method = medId ? 'PUT' : 'POST';
+        
+        const response = await fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(medData)
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.description || 'Failed to save medication');
+        }
+        
+        bootstrap.Modal.getInstance(document.getElementById('medicationFormModal')).hide();
+        await loadManageMedications();
+        alert(medId ? 'Medication updated successfully!' : 'Medication added successfully!');
+        
+    } catch (error) {
+        console.error('Error saving medication:', error);
+        alert(`Error: ${error.message}`);
+    }
+}
+
+// Load medications for management view
+async function loadManageMedications() {
+    try {
+        const response = await fetch(`${API_URL}/medications?include_inactive=true`);
+        const medications = await response.json();
+        
+        const container = document.getElementById('manageMedicationsList');
+        container.innerHTML = '';
+        
+        if (medications.length === 0) {
+            container.innerHTML = '<p class="text-center text-muted">No medications found.</p>';
+            return;
+        }
+        
+        medications.forEach(med => {
+            const card = createManageMedicationCard(med);
+            container.appendChild(card);
+        });
+        
+    } catch (error) {
+        console.error('Error loading medications:', error);
+        alert('Failed to load medications.');
+    }
+}
+
+// Create medication management card
+function createManageMedicationCard(med) {
+    const card = document.createElement('div');
+    card.className = `card mb-2 ${!med.Active ? 'border-secondary' : ''}`;
+    
+    card.innerHTML = `
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start">
+                <div class="flex-grow-1">
+                    <h6 class="card-title mb-1">
+                        ${med.MedicationName}
+                        ${!med.Active ? '<span class="badge bg-secondary ms-2">Inactive</span>' : ''}
+                    </h6>
+                    <small class="text-muted">${med.CommonName} - ${med.MedicationStrength}</small>
+                    <div class="mt-1">
+                        <small>Qty: ${med.QtyRepeat} | Price: ${med.Price ? '$' + med.Price.toFixed(2) : 'N/A'}</small>
+                    </div>
+                </div>
+                <div class="btn-group-vertical btn-group-sm">
+                    <button class="btn btn-outline-primary" onclick="editMedication(${med.MedIDs})">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn btn-outline-${med.Active ? 'warning' : 'success'}" 
+                            onclick="toggleMedicationActive(${med.MedIDs}, ${med.Active})">
+                        <i class="bi bi-${med.Active ? 'archive' : 'arrow-counterclockwise'}"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    return card;
+}
+
+// Edit medication
+async function editMedication(medId) {
+    try {
+        const response = await fetch(`${API_URL}/medications/${medId}`);
+        const med = await response.json();
+        
+        document.getElementById('medicationFormTitle').textContent = 'Edit Medication';
+        document.getElementById('editMedId').value = med.MedIDs;
+        document.getElementById('medName').value = med.MedicationName;
+        document.getElementById('medCommonName').value = med.CommonName;
+        document.getElementById('medStrength').value = med.MedicationStrength;
+        document.getElementById('medQtyRepeat').value = med.QtyRepeat;
+        document.getElementById('medPrice').value = med.Price || '';
+        
+        new bootstrap.Modal(document.getElementById('medicationFormModal')).show();
+        
+    } catch (error) {
+        console.error('Error loading medication:', error);
+        alert('Failed to load medication details.');
+    }
+}
+
+// Toggle medication active status
+async function toggleMedicationActive(medId, currentStatus) {
+    const action = currentStatus ? 'deactivate' : 'activate';
+    if (!confirm(`Are you sure you want to ${action} this medication?`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_URL}/medications/${medId}/toggle-active`, {
+            method: 'POST'
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to toggle medication status');
+        }
+        
+        await loadManageMedications();
+        
+    } catch (error) {
+        console.error('Error toggling medication status:', error);
+        alert('Failed to update medication status.');
+    }
 }
