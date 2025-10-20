@@ -87,6 +87,9 @@ async function loadUserMedications() {
         displayMedications();
         updateSummary();
         
+        // Load forecast by default
+        await loadForecast();
+        
     } catch (error) {
         console.error('Error loading medications:', error);
         alert('Failed to load medications.');
