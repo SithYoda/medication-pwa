@@ -105,12 +105,15 @@ function displayMedications() {
     const container = document.getElementById('medicationsList');
     container.innerHTML = '';
     
-    if (currentMedications.length === 0) {
-        container.innerHTML = '<p class="text-center text-muted">No medications found.</p>';
+    // Filter out inactive medications
+    const activeMedications = currentMedications.filter(m => m.Active !== false);
+    
+    if (activeMedications.length === 0) {
+        container.innerHTML = '<p class="text-center text-muted">No active medications found.</p>';
         return;
     }
     
-    currentMedications.forEach(med => {
+    activeMedications.forEach(med => {
         const card = createMedicationCard(med);
         container.appendChild(card);
     });
@@ -213,11 +216,13 @@ async function recordPurchase() {
 
 // Update summary
 function updateSummary() {
-    document.getElementById('totalMeds').textContent = currentMedications.length;
+    const activeMedications = currentMedications.filter(m => m.Active !== false);
+    
+    document.getElementById('totalMeds').textContent = activeMedications.length;
     document.getElementById('lowStockCount').textContent = 
-        currentMedications.filter(m => m.calcStockStatus === 'low').length;
+        activeMedications.filter(m => m.calcStockStatus === 'low').length;
     document.getElementById('criticalCount').textContent = 
-        currentMedications.filter(m => m.calcStockStatus === 'critical').length;
+        activeMedications.filter(m => m.calcStockStatus === 'critical').length;
 }
 
 // Switch tabs
@@ -248,19 +253,28 @@ async function loadForecast() {
         const response = await fetch(`${API_URL}/user-med-chart/user/${currentUserId}/forecast`);
         const forecast = await response.json();
         
+        // Filter out inactive medications
+        const activeMedications = forecast.medications.filter(m => m.Active !== false);
+        
         // Update next purchase date
-        const nextPurchase = forecast.medications.find(m => m.NextPurchaseDate);
+        const nextPurchase = activeMedications.find(m => m.NextPurchaseDate);
         document.getElementById('nextPurchaseDate').textContent = 
             nextPurchase ? formatDate(nextPurchase.NextPurchaseDate) : 'Not set';
         
-        document.getElementById('estimatedCost').textContent = 
-            `$${forecast.estimated_total_cost.toFixed(2)}`;
+        // Recalculate total cost for active medications only
+        const totalCost = activeMedications.reduce((sum, item) => sum + (item.EstimatedCost || 0), 0);
+        document.getElementById('estimatedCost').textContent = `$${totalCost.toFixed(2)}`;
         
-        // Display forecast items
+        // Display forecast items (active only)
         const container = document.getElementById('forecastList');
         container.innerHTML = '';
         
-        forecast.medications.forEach(med => {
+        if (activeMedications.length === 0) {
+            container.innerHTML = '<p class="text-center text-muted">No active medications found.</p>';
+            return;
+        }
+        
+        activeMedications.forEach(med => {
             const item = createForecastItem(med);
             container.appendChild(item);
         });
