@@ -3,7 +3,7 @@ const API_URL = 'https://darthyoda.pythonanywhere.com';
 const USER_ID = 1; // Your user ID
 
 // Google OAuth Configuration
-const GOOGLE_CLIENT_ID = '769304845593-ri53r3bcsugr1trjgksgt8rjntevpbid.apps.googleusercontent.com'; // Replace with your actual client ID
+const GOOGLE_CLIENT_ID = '769304845593-ri53r3bcsugr1trjgksgt8rjntevpbid.apps.googleusercontent.com';
 
 // Global state
 let currentUser = null;
@@ -27,12 +27,36 @@ function showCustomAlert(title, message) {
 
 // Initialize Google Sign-In (waits for library to load)
 function initGoogleSignIn() {
+    console.log('initGoogleSignIn called');
+    
     // Check if Google Sign-In library is loaded
     if (typeof google !== 'undefined' && google.accounts) {
-        google.accounts.id.initialize({
-            client_id: GOOGLE_CLIENT_ID,
-            callback: handleGoogleSignIn
-        });
+        console.log('Google Sign-In library loaded successfully');
+        console.log('Client ID:', GOOGLE_CLIENT_ID);
+        
+        try {
+            google.accounts.id.initialize({
+                client_id: GOOGLE_CLIENT_ID,
+                callback: handleGoogleSignIn,
+                auto_select: false
+            });
+            
+            // Render the Google Sign-In button
+            google.accounts.id.renderButton(
+                document.getElementById('googleSignInButton'),
+                { 
+                    theme: 'outline', 
+                    size: 'large',
+                    text: 'signin_with',
+                    width: 250
+                }
+            );
+            
+            console.log('Google Sign-In initialized and button rendered');
+        } catch (error) {
+            console.error('Error initializing Google Sign-In:', error);
+            showCustomAlert('Error', 'Failed to initialize Google Sign-In: ' + error.message);
+        }
     } else {
         // Wait a bit and try again if library isn't loaded yet
         console.log('Waiting for Google Sign-In library to load...');
@@ -42,21 +66,30 @@ function initGoogleSignIn() {
 
 // Handle Google Sign-In
 function handleGoogleSignIn(response) {
-    // Decode the JWT token to get user info
-    const userInfo = parseJwt(response.credential);
-    currentUser = {
-        email: userInfo.email,
-        name: userInfo.name,
-        picture: userInfo.picture
-    };
+    console.log('Google Sign-In response received');
     
-    // Show main content
-    document.getElementById('loginSection').style.display = 'none';
-    document.getElementById('mainContent').style.display = 'block';
-    document.getElementById('userEmail').textContent = currentUser.email;
-    
-    // Load initial data
-    loadMedications();
+    try {
+        // Decode the JWT token to get user info
+        const userInfo = parseJwt(response.credential);
+        console.log('User signed in:', userInfo.email);
+        
+        currentUser = {
+            email: userInfo.email,
+            name: userInfo.name,
+            picture: userInfo.picture
+        };
+        
+        // Show main content
+        document.getElementById('loginSection').style.display = 'none';
+        document.getElementById('mainContent').style.display = 'block';
+        document.getElementById('userEmail').textContent = currentUser.email;
+        
+        // Load initial data
+        loadMedications();
+    } catch (error) {
+        console.error('Error handling sign-in:', error);
+        showCustomAlert('Error', 'Failed to process sign-in: ' + error.message);
+    }
 }
 
 // Parse JWT token
@@ -68,11 +101,6 @@ function parseJwt(token) {
     }).join(''));
     return JSON.parse(jsonPayload);
 }
-
-// Login Button
-document.getElementById('loginButton')?.addEventListener('click', () => {
-    google.accounts.id.prompt();
-});
 
 // Logout Button
 document.getElementById('logoutButton')?.addEventListener('click', () => {
