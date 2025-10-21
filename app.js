@@ -296,9 +296,9 @@ function showMedicationDetail(med) {
     document.getElementById('modalCommonName').textContent = med.CommonName;
     document.getElementById('modalStrength').textContent = med.MedicationStrength;
     document.getElementById('modalStock').value = med.Stocktake;
+    document.getElementById('modalRepeats').value = med.Repeats;  // ADD THIS LINE
     document.getElementById('modalDaysRemaining').value = `${med.calcDaysRemaining} days`;
     document.getElementById('modalRunOutDate').value = med.calcRunOutDate ? formatDate(med.calcRunOutDate) : 'N/A';
-    document.getElementById('modalRepeats').value = med.Repeats;
     
     // Show low repeats warning
     const repeatsWarning = document.getElementById('repeatsWarning');
