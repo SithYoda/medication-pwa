@@ -25,12 +25,19 @@ function showCustomAlert(title, message) {
     document.body.appendChild(overlay);
 }
 
-// Initialize Google Sign-In
+// Initialize Google Sign-In (waits for library to load)
 function initGoogleSignIn() {
-    google.accounts.id.initialize({
-        client_id: GOOGLE_CLIENT_ID,
-        callback: handleGoogleSignIn
-    });
+    // Check if Google Sign-In library is loaded
+    if (typeof google !== 'undefined' && google.accounts) {
+        google.accounts.id.initialize({
+            client_id: GOOGLE_CLIENT_ID,
+            callback: handleGoogleSignIn
+        });
+    } else {
+        // Wait a bit and try again if library isn't loaded yet
+        console.log('Waiting for Google Sign-In library to load...');
+        setTimeout(initGoogleSignIn, 100);
+    }
 }
 
 // Handle Google Sign-In
@@ -486,7 +493,5 @@ document.getElementById('saveChanges')?.addEventListener('click', async () => {
 // Refresh Button
 document.getElementById('refreshButton')?.addEventListener('click', loadMedications);
 
-// Initialize on page load
-document.addEventListener('DOMContentLoaded', () => {
-    initGoogleSignIn();
-});
+// Note: initGoogleSignIn() is now called by the onload callback in index.html
+// when the Google Sign-In library finishes loading
