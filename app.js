@@ -664,6 +664,8 @@ async function toggleMedicationActive(medId, currentStatus) {
         alert('Failed to update medication status.');
     }
 
+// ==================== EDIT MODE FOR STOCK/REPEATS ====================
+
 // Enable edit mode for stock and repeats
 function enterEditMode() {
     document.getElementById('modalStock').removeAttribute('readonly');
