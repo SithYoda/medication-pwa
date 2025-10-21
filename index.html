@@ -4,12 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Medication Tracker</title>
-    
-    <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Bootstrap Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
-    
     <style>
         body {
             padding-top: 20px;
@@ -127,37 +123,27 @@
         .custom-alert-button:hover {
             background-color: #0b5ed7;
         }
-        #editMode {
-            background-color: #fff3cd;
-            border: 2px solid #ffc107;
-        }
     </style>
 </head>
 <body>
     <div class="container">
-        <!-- Header -->
         <div class="text-center mb-4">
             <h1><i class="bi bi-capsule"></i> Medication Tracker</h1>
             <p class="text-muted" id="userEmail"></p>
         </div>
 
-        <!-- Login Section -->
         <div id="loginSection" class="text-center">
             <div class="card">
                 <div class="card-body">
                     <h5 class="card-title">Welcome!</h5>
                     <p class="card-text">Please sign in with your Google account to continue.</p>
-                    <button id="loginButton" class="btn btn-primary">
-                        <i class="bi bi-google"></i> Sign in with Google
-                    </button>
+                    <div id="buttonDiv"></div>
                 </div>
             </div>
         </div>
 
-        <!-- Main Content (hidden until logged in) -->
         <div id="mainContent" style="display: none;">
-            <!-- Tab Navigation -->
-            <ul class="nav nav-tabs mb-3" id="mainTabs">
+            <ul class="nav nav-tabs mb-3" id="mainTabs" style="display: none;">
                 <li class="nav-item">
                     <a class="nav-link" id="medsTab" href="#" data-tab="medications">
                         <i class="bi bi-list-ul"></i> Medications
@@ -180,7 +166,6 @@
                 </li>
             </ul>
 
-            <!-- Medications View -->
             <div id="medicationsView" class="content-section" style="display: none;">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h3>My Medications</h3>
@@ -191,21 +176,16 @@
                 <div id="medicationsList"></div>
             </div>
 
-            <!-- Forecast View -->
             <div id="forecastView" class="content-section">
                 <h3 class="mb-3">Medication Forecast</h3>
-                
-                <!-- Scenario Selector -->
                 <div class="card mb-3">
                     <div class="card-body">
                         <h5 class="card-title">Forecast Scenario</h5>
                         <div class="btn-group w-100" role="group">
                             <input type="radio" class="btn-check" name="scenario" id="scenarioA" value="A" checked>
                             <label class="btn btn-outline-primary" for="scenarioA">Med A</label>
-                            
                             <input type="radio" class="btn-check" name="scenario" id="scenarioB" value="B">
                             <label class="btn btn-outline-primary" for="scenarioB">Med B</label>
-                            
                             <input type="radio" class="btn-check" name="scenario" id="scenarioC" value="C">
                             <label class="btn btn-outline-primary" for="scenarioC">Med C</label>
                         </div>
@@ -214,34 +194,25 @@
                         </small>
                     </div>
                 </div>
-                
-                <!-- Forecast Results -->
                 <div id="forecastResults"></div>
             </div>
 
-            <!-- Timeline View -->
             <div id="timelineView" class="content-section" style="display: none;">
                 <h3 class="mb-3">Purchase Timeline</h3>
-                
-                <!-- Month Selector -->
                 <div class="card mb-3">
                     <div class="card-body">
                         <h5 class="card-title">Forecast Period</h5>
                         <div class="btn-group w-100" role="group">
                             <input type="radio" class="btn-check" name="timelineMonths" id="timeline3" value="3">
                             <label class="btn btn-outline-primary" for="timeline3">3 Months</label>
-                            
                             <input type="radio" class="btn-check" name="timelineMonths" id="timeline6" value="6" checked>
                             <label class="btn btn-outline-primary" for="timeline6">6 Months</label>
-                            
                             <input type="radio" class="btn-check" name="timelineMonths" id="timeline12" value="12">
                             <label class="btn btn-outline-primary" for="timeline12">12 Months</label>
                         </div>
                     </div>
                 </div>
-                
-                <!-- Timeline Summary -->
-                <div class="row g-2 mb-3" id="timelineSummary">
+                <div class="row g-2 mb-3">
                     <div class="col-6">
                         <div class="card text-center">
                             <div class="card-body p-2">
@@ -259,12 +230,9 @@
                         </div>
                     </div>
                 </div>
-                
-                <!-- Timeline Events -->
                 <div id="timelineEvents"></div>
             </div>
 
-            <!-- Manage Medications View -->
             <div id="manageView" class="content-section" style="display: none;">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h3>Manage Medications</h3>
@@ -277,16 +245,13 @@
                         </button>
                     </div>
                 </div>
-                
                 <div id="editModeAlert" class="alert alert-warning" style="display: none;">
                     <i class="bi bi-exclamation-triangle"></i>
                     <strong>Edit Mode Active:</strong> Make your changes and click "Save Changes" when done.
                 </div>
-                
                 <div id="manageMedicationsList"></div>
             </div>
 
-            <!-- Logout Button -->
             <div class="text-center mt-4 mb-3">
                 <button id="logoutButton" class="btn btn-outline-secondary">
                     <i class="bi bi-box-arrow-right"></i> Logout
@@ -295,13 +260,8 @@
         </div>
     </div>
 
-    <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    
-    <!-- Main App Script (load before Google Sign-In) -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="app.js"></script>
-    
-    <!-- Google Sign-In (with onload callback) -->
-    <script src="https://accounts.google.com/gsi/client" async defer onload="initGoogleSignIn()"></script>
 </body>
 </html>

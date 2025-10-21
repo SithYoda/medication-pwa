@@ -1,17 +1,14 @@
 // Configuration
 const API_URL = 'https://darthyoda.pythonanywhere.com';
-const USER_ID = 1; // Your user ID
-
-// Google OAuth Configuration
+const USER_ID = 1;
 const GOOGLE_CLIENT_ID = '769304845593-ri53r3bcsugr1trjgksgt8rjntevpbid.apps.googleusercontent.com';
 
 // Global state
 let currentUser = null;
-let medications = [];
 let editMode = false;
 let pendingChanges = {};
 
-// Custom Alert Function
+// Custom Alert
 function showCustomAlert(title, message) {
     const overlay = document.createElement('div');
     overlay.className = 'custom-alert-overlay';
@@ -25,74 +22,23 @@ function showCustomAlert(title, message) {
     document.body.appendChild(overlay);
 }
 
-// Initialize Google Sign-In (waits for library to load)
-function initGoogleSignIn() {
-    console.log('initGoogleSignIn called');
+// Google Sign-In
+function handleCredentialResponse(response) {
+    const userObject = parseJwt(response.credential);
+    currentUser = {
+        email: userObject.email,
+        name: userObject.name,
+        picture: userObject.picture
+    };
     
-    // Check if Google Sign-In library is loaded
-    if (typeof google !== 'undefined' && google.accounts) {
-        console.log('Google Sign-In library loaded successfully');
-        console.log('Client ID:', GOOGLE_CLIENT_ID);
-        
-        try {
-            google.accounts.id.initialize({
-                client_id: GOOGLE_CLIENT_ID,
-                callback: handleGoogleSignIn,
-                auto_select: false
-            });
-            
-            // Render the Google Sign-In button
-            google.accounts.id.renderButton(
-                document.getElementById('googleSignInButton'),
-                { 
-                    theme: 'outline', 
-                    size: 'large',
-                    text: 'signin_with',
-                    width: 250
-                }
-            );
-            
-            console.log('Google Sign-In initialized and button rendered');
-        } catch (error) {
-            console.error('Error initializing Google Sign-In:', error);
-            showCustomAlert('Error', 'Failed to initialize Google Sign-In: ' + error.message);
-        }
-    } else {
-        // Wait a bit and try again if library isn't loaded yet
-        console.log('Waiting for Google Sign-In library to load...');
-        setTimeout(initGoogleSignIn, 100);
-    }
+    document.getElementById('loginSection').style.display = 'none';
+    document.getElementById('mainContent').style.display = 'block';
+    document.getElementById('mainTabs').style.display = 'flex';
+    document.getElementById('userEmail').textContent = currentUser.email;
+    
+    loadMedications();
 }
 
-// Handle Google Sign-In
-function handleGoogleSignIn(response) {
-    console.log('Google Sign-In response received');
-    
-    try {
-        // Decode the JWT token to get user info
-        const userInfo = parseJwt(response.credential);
-        console.log('User signed in:', userInfo.email);
-        
-        currentUser = {
-            email: userInfo.email,
-            name: userInfo.name,
-            picture: userInfo.picture
-        };
-        
-        // Show main content
-        document.getElementById('loginSection').style.display = 'none';
-        document.getElementById('mainContent').style.display = 'block';
-        document.getElementById('userEmail').textContent = currentUser.email;
-        
-        // Load initial data
-        loadMedications();
-    } catch (error) {
-        console.error('Error handling sign-in:', error);
-        showCustomAlert('Error', 'Failed to process sign-in: ' + error.message);
-    }
-}
-
-// Parse JWT token
 function parseJwt(token) {
     const base64Url = token.split('.')[1];
     const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
@@ -102,81 +48,61 @@ function parseJwt(token) {
     return JSON.parse(jsonPayload);
 }
 
-// Logout Button
+// Logout
 document.getElementById('logoutButton')?.addEventListener('click', () => {
+    google.accounts.id.disableAutoSelect();
     currentUser = null;
     document.getElementById('loginSection').style.display = 'block';
     document.getElementById('mainContent').style.display = 'none';
-    google.accounts.id.disableAutoSelect();
+    document.getElementById('mainTabs').style.display = 'none';
 });
 
-// Tab Navigation
+// Tab switching
 document.querySelectorAll('[data-tab]').forEach(tab => {
     tab.addEventListener('click', (e) => {
         e.preventDefault();
-        const tabName = e.currentTarget.dataset.tab;
-        switchTab(tabName);
+        switchTab(e.currentTarget.dataset.tab);
     });
 });
 
 function switchTab(tabName) {
-    // Update active tab
-    document.querySelectorAll('.nav-link').forEach(link => {
-        link.classList.remove('active');
-    });
+    document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
     document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
     
-    // Show corresponding content
-    document.querySelectorAll('.content-section').forEach(section => {
-        section.style.display = 'none';
-    });
+    document.querySelectorAll('.content-section').forEach(section => section.style.display = 'none');
     
-    switch(tabName) {
-        case 'medications':
-            document.getElementById('medicationsView').style.display = 'block';
-            loadMedications();
-            break;
-        case 'forecast':
-            document.getElementById('forecastView').style.display = 'block';
-            loadForecast();
-            break;
-        case 'timeline':
-            document.getElementById('timelineView').style.display = 'block';
-            loadTimeline();
-            break;
-        case 'manage':
-            document.getElementById('manageView').style.display = 'block';
-            loadManageMedications();
-            break;
+    if (tabName === 'medications') {
+        document.getElementById('medicationsView').style.display = 'block';
+        loadMedications();
+    } else if (tabName === 'forecast') {
+        document.getElementById('forecastView').style.display = 'block';
+        loadForecast();
+    } else if (tabName === 'timeline') {
+        document.getElementById('timelineView').style.display = 'block';
+        loadTimeline();
+    } else if (tabName === 'manage') {
+        document.getElementById('manageView').style.display = 'block';
+        loadManageMedications();
     }
 }
 
-// Load Medications
+// Load medications
 async function loadMedications() {
     try {
         const response = await fetch(`${API_URL}/user-med-chart/user/${USER_ID}`);
-        if (!response.ok) throw new Error('Failed to load medications');
-        
-        medications = await response.json();
+        const medications = await response.json();
         displayMedications(medications);
     } catch (error) {
-        console.error('Error loading medications:', error);
-        showCustomAlert('Error', 'Failed to load medications. Please try again.');
+        showCustomAlert('Error', 'Failed to load medications');
     }
 }
 
-// Display Medications
-function displayMedications(meds) {
+function displayMedications(medications) {
     const container = document.getElementById('medicationsList');
-    if (!meds || meds.length === 0) {
-        container.innerHTML = '<div class="alert alert-info">No medications found.</div>';
-        return;
-    }
-    
-    container.innerHTML = meds.map(med => {
-        const daysUntilRefill = Math.floor(med.calcStockDays || 0);
-        const repeatsWarning = (med.Repeats || 0) <= 1;
-        const refillWarning = daysUntilRefill <= 7;
+    container.innerHTML = medications.map(med => {
+        const daysLeft = Math.floor(med.calcStockDays || 0);
+        const repeatsLow = (med.Repeats || 0) <= 1;
+        const refillSoon = daysLeft <= 7;
         
         return `
             <div class="card medication-card">
@@ -186,12 +112,11 @@ function displayMedications(meds) {
                             <h5 class="card-title mb-1">${med.medication?.Name || 'Unknown'}</h5>
                             <p class="text-muted mb-2">${med.medication?.Strength || ''}</p>
                         </div>
-                        <div class="text-end">
-                            ${repeatsWarning ? '<span class="badge bg-danger warning-badge">Low Repeats!</span>' : ''}
-                            ${refillWarning ? '<span class="badge bg-warning warning-badge">Refill Soon!</span>' : ''}
+                        <div>
+                            ${repeatsLow ? '<span class="badge bg-danger warning-badge">Low Repeats!</span>' : ''}
+                            ${refillSoon ? '<span class="badge bg-warning warning-badge">Refill Soon!</span>' : ''}
                         </div>
                     </div>
-                    
                     <div class="row g-2 mt-2">
                         <div class="col-6">
                             <small class="text-muted">Stock:</small>
@@ -199,7 +124,7 @@ function displayMedications(meds) {
                         </div>
                         <div class="col-6">
                             <small class="text-muted">Days Left:</small>
-                            <div><strong>${daysUntilRefill}</strong> days</div>
+                            <div><strong>${daysLeft}</strong> days</div>
                         </div>
                         <div class="col-6">
                             <small class="text-muted">Repeats:</small>
@@ -216,59 +141,42 @@ function displayMedications(meds) {
     }).join('');
 }
 
-// Load Forecast
+// Forecast
 async function loadForecast() {
     const scenario = document.querySelector('input[name="scenario"]:checked')?.value || 'A';
-    
     try {
         const response = await fetch(`${API_URL}/user-med-chart/user/${USER_ID}/forecast?scenario=${scenario}`);
-        if (!response.ok) throw new Error('Failed to load forecast');
-        
         const forecast = await response.json();
         displayForecast(forecast);
     } catch (error) {
-        console.error('Error loading forecast:', error);
-        showCustomAlert('Error', 'Failed to load forecast. Please try again.');
+        showCustomAlert('Error', 'Failed to load forecast');
     }
 }
 
-// Display Forecast
 function displayForecast(forecast) {
     const container = document.getElementById('forecastResults');
     
-    if (!forecast || !forecast.medications || forecast.medications.length === 0) {
-        container.innerHTML = '<div class="alert alert-info">No forecast data available.</div>';
-        return;
-    }
-    
-    // Summary Card
     let html = `
         <div class="card mb-3">
             <div class="card-body">
                 <h5 class="card-title">Summary</h5>
                 <div class="row g-3">
-                    <div class="col-6">
-                        <div class="text-center">
-                            <div class="text-muted small">Next Purchase</div>
-                            <div class="h4 mb-0">${forecast.next_purchase_in_days || 0} days</div>
-                        </div>
+                    <div class="col-6 text-center">
+                        <div class="text-muted small">Next Purchase</div>
+                        <div class="h4 mb-0">${forecast.next_purchase_in_days || 0} days</div>
                     </div>
-                    <div class="col-6">
-                        <div class="text-center">
-                            <div class="text-muted small">Total Items</div>
-                            <div class="h4 mb-0">${forecast.total_items || 0}</div>
-                        </div>
+                    <div class="col-6 text-center">
+                        <div class="text-muted small">Total Items</div>
+                        <div class="h4 mb-0">${forecast.total_items || 0}</div>
                     </div>
                 </div>
             </div>
         </div>
     `;
     
-    // Medications
-    html += forecast.medications.map(med => {
+    forecast.medications.forEach(med => {
         const needsScript = (med.repeats_remaining || 0) === 0;
-        
-        return `
+        html += `
             <div class="card mb-3">
                 <div class="card-body">
                     <h5 class="card-title">${med.name}</h5>
@@ -290,92 +198,69 @@ function displayForecast(forecast) {
                             <div><strong>$${(med.estimated_cost || 0).toFixed(2)}</strong></div>
                         </div>
                     </div>
-                    ${needsScript ? '<div class="alert alert-danger mt-2 mb-0"><i class="bi bi-exclamation-triangle"></i> New prescription needed from doctor!</div>' : ''}
+                    ${needsScript ? '<div class="alert alert-danger mt-2 mb-0"><i class="bi bi-exclamation-triangle"></i> New prescription needed!</div>' : ''}
                 </div>
             </div>
         `;
-    }).join('');
+    });
     
     container.innerHTML = html;
 }
 
-// Scenario Change Listener
 document.querySelectorAll('input[name="scenario"]').forEach(radio => {
     radio.addEventListener('change', loadForecast);
 });
 
-// Load Timeline
+// Timeline
 async function loadTimeline() {
     const months = document.querySelector('input[name="timelineMonths"]:checked')?.value || 6;
-    
     try {
         const response = await fetch(`${API_URL}/user-med-chart/user/${USER_ID}/timeline?months=${months}`);
-        if (!response.ok) throw new Error('Failed to load timeline');
-        
         const timeline = await response.json();
         displayTimeline(timeline);
     } catch (error) {
-        console.error('Error loading timeline:', error);
-        showCustomAlert('Error', 'Failed to load timeline. Please check the console for details.');
+        showCustomAlert('Error', 'Failed to load timeline');
     }
 }
 
-// Display Timeline
 function displayTimeline(timeline) {
-    if (!timeline || !timeline.events || timeline.events.length === 0) {
-        document.getElementById('timelineEvents').innerHTML = 
-            '<div class="alert alert-info">No timeline events found.</div>';
-        document.getElementById('totalPurchases').textContent = '0';
-        document.getElementById('totalScripts').textContent = '0';
-        return;
-    }
-    
-    // Update summary
     document.getElementById('totalPurchases').textContent = timeline.total_purchases || 0;
     document.getElementById('totalScripts').textContent = timeline.total_prescriptions || 0;
     
-    // Group events by month
     const eventsByMonth = {};
     timeline.events.forEach(event => {
         const month = event.month_year;
-        if (!eventsByMonth[month]) {
-            eventsByMonth[month] = [];
-        }
+        if (!eventsByMonth[month]) eventsByMonth[month] = [];
         eventsByMonth[month].push(event);
     });
     
-    // Display events
     let html = '';
     Object.keys(eventsByMonth).sort().forEach(month => {
         const events = eventsByMonth[month];
-        const monthPurchases = events.filter(e => e.event_type === 'purchase').length;
-        const monthScripts = events.filter(e => e.event_type === 'prescription').length;
+        const purchases = events.filter(e => e.event_type === 'purchase').length;
+        const scripts = events.filter(e => e.event_type === 'prescription').length;
         
         html += `
             <div class="month-group">
                 <div class="month-header">
                     ${month}
                     <span class="float-end">
-                        <span class="badge bg-success">${monthPurchases} purchases</span>
-                        ${monthScripts > 0 ? `<span class="badge bg-danger">${monthScripts} scripts</span>` : ''}
+                        <span class="badge bg-success">${purchases} purchases</span>
+                        ${scripts > 0 ? `<span class="badge bg-danger">${scripts} scripts</span>` : ''}
                     </span>
                 </div>
         `;
         
         events.forEach(event => {
             const isScript = event.event_type === 'prescription';
-            const eventClass = isScript ? 'prescription' : 'purchase';
-            const icon = isScript ? 'file-medical' : 'cart';
-            const color = isScript ? 'danger' : 'success';
-            
             html += `
-                <div class="timeline-event ${eventClass}">
+                <div class="timeline-event ${isScript ? 'prescription' : 'purchase'}">
                     <div class="d-flex justify-content-between align-items-start mb-2">
                         <div>
-                            <i class="bi bi-${icon} text-${color}"></i>
+                            <i class="bi bi-${isScript ? 'file-medical' : 'cart'} text-${isScript ? 'danger' : 'success'}"></i>
                             <strong>${event.medication_name}</strong>
                         </div>
-                        <span class="badge bg-${color}">${event.date}</span>
+                        <span class="badge bg-${isScript ? 'danger' : 'success'}">${event.date}</span>
                     </div>
                     <div class="small text-muted">
                         ${isScript ? 
@@ -394,22 +279,23 @@ function displayTimeline(timeline) {
     document.getElementById('timelineEvents').innerHTML = html;
 }
 
-// Timeline Month Change Listener
 document.querySelectorAll('input[name="timelineMonths"]').forEach(radio => {
     radio.addEventListener('change', loadTimeline);
 });
 
-// Manage Medications
+// Manage
 function loadManageMedications() {
+    loadMedications().then(async () => {
+        const response = await fetch(`${API_URL}/user-med-chart/user/${USER_ID}`);
+        const medications = await response.json();
+        displayManageMedications(medications);
+    });
+}
+
+function displayManageMedications(medications) {
     const container = document.getElementById('manageMedicationsList');
-    
-    if (!medications || medications.length === 0) {
-        container.innerHTML = '<div class="alert alert-info">No medications to manage.</div>';
-        return;
-    }
-    
     container.innerHTML = medications.map(med => `
-        <div class="card mb-3 ${editMode ? 'border-warning' : ''}">
+        <div class="card mb-3">
             <div class="card-body">
                 <h5 class="card-title">${med.medication?.Name || 'Unknown'}</h5>
                 <div class="row g-3">
@@ -450,76 +336,61 @@ function loadManageMedications() {
         </div>
     `).join('');
     
-    // Add change listeners if in edit mode
     if (editMode) {
         container.querySelectorAll('input').forEach(input => {
-            input.addEventListener('change', handleFieldChange);
+            input.addEventListener('change', e => {
+                const medId = e.target.dataset.medId;
+                const field = e.target.dataset.field;
+                if (!pendingChanges[medId]) pendingChanges[medId] = {};
+                pendingChanges[medId][field] = e.target.value;
+            });
         });
     }
 }
 
-// Toggle Edit Mode
 document.getElementById('toggleEditMode')?.addEventListener('click', () => {
     editMode = !editMode;
     pendingChanges = {};
     
-    if (editMode) {
-        document.getElementById('toggleEditMode').style.display = 'none';
-        document.getElementById('saveChanges').style.display = 'inline-block';
-        document.getElementById('editModeAlert').style.display = 'block';
-        document.getElementById('manageView').classList.add('edit-mode');
-    } else {
-        document.getElementById('toggleEditMode').style.display = 'inline-block';
-        document.getElementById('saveChanges').style.display = 'none';
-        document.getElementById('editModeAlert').style.display = 'none';
-        document.getElementById('manageView').classList.remove('edit-mode');
-    }
+    document.getElementById('toggleEditMode').style.display = editMode ? 'none' : 'inline-block';
+    document.getElementById('saveChanges').style.display = editMode ? 'inline-block' : 'none';
+    document.getElementById('editModeAlert').style.display = editMode ? 'block' : 'none';
     
     loadManageMedications();
 });
 
-// Handle Field Change
-function handleFieldChange(e) {
-    const medId = e.target.dataset.medId;
-    const field = e.target.dataset.field;
-    const value = e.target.value;
-    
-    if (!pendingChanges[medId]) {
-        pendingChanges[medId] = {};
-    }
-    pendingChanges[medId][field] = value;
-}
-
-// Save Changes
 document.getElementById('saveChanges')?.addEventListener('click', async () => {
     try {
-        const updates = Object.entries(pendingChanges).map(([medId, changes]) => {
+        await Promise.all(Object.entries(pendingChanges).map(([medId, changes]) => {
             return fetch(`${API_URL}/user-med-chart/${medId}`, {
                 method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(changes)
             });
-        });
+        }));
         
-        await Promise.all(updates);
         showCustomAlert('Success', 'Changes saved successfully!');
-        
-        // Exit edit mode and reload
         editMode = false;
         pendingChanges = {};
         document.getElementById('toggleEditMode').click();
-        await loadMedications();
+        loadMedications();
         loadManageMedications();
     } catch (error) {
-        console.error('Error saving changes:', error);
-        showCustomAlert('Error', 'Failed to save changes. Please try again.');
+        showCustomAlert('Error', 'Failed to save changes');
     }
 });
 
-// Refresh Button
 document.getElementById('refreshButton')?.addEventListener('click', loadMedications);
 
-// Note: initGoogleSignIn() is now called by the onload callback in index.html
-// when the Google Sign-In library finishes loading
+// Initialize
+window.onload = function() {
+    google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: handleCredentialResponse
+    });
+    google.accounts.id.renderButton(
+        document.getElementById('buttonDiv'),
+        { theme: 'outline', size: 'large' }
+    );
+    google.accounts.id.prompt();
+};
