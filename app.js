@@ -254,11 +254,22 @@ function createMedicationCard(med) {
         'good': 'success'
     }[med.calcStockStatus];
     
+    // Check for low repeats
+    let repeatsWarning = '';
+    if (med.Repeats === 0) {
+        repeatsWarning = '<span class="badge bg-danger ms-2"><i class="bi bi-exclamation-circle"></i> No Repeats</span>';
+    } else if (med.Repeats <= 2) {
+        repeatsWarning = `<span class="badge bg-warning text-dark ms-2"><i class="bi bi-exclamation-triangle"></i> ${med.Repeats} Repeat${med.Repeats === 1 ? '' : 's'}</span>`;
+    }
+    
     card.innerHTML = `
         <div class="card-body">
             <div class="d-flex justify-content-between align-items-start">
                 <div>
-                    <h6 class="card-title mb-1">${med.MedicationName}</h6>
+                    <h6 class="card-title mb-1">
+                        ${med.MedicationName}
+                        ${repeatsWarning}
+                    </h6>
                     <small class="text-muted">${med.CommonName} ${med.MedicationStrength}</small>
                 </div>
                 <span class="badge bg-${statusColor} stock-badge">
@@ -287,6 +298,21 @@ function showMedicationDetail(med) {
     document.getElementById('modalStock').value = med.Stocktake;
     document.getElementById('modalDaysRemaining').value = `${med.calcDaysRemaining} days`;
     document.getElementById('modalRunOutDate').value = med.calcRunOutDate ? formatDate(med.calcRunOutDate) : 'N/A';
+    document.getElementById('modalRepeats').value = med.Repeats;
+    
+    // Show low repeats warning
+    const repeatsWarning = document.getElementById('repeatsWarning');
+    if (med.Repeats <= 2 && med.Repeats > 0) {
+        repeatsWarning.style.display = 'block';
+        repeatsWarning.textContent = `⚠️ Only ${med.Repeats} repeat${med.Repeats === 1 ? '' : 's'} remaining!`;
+    } else if (med.Repeats === 0) {
+        repeatsWarning.style.display = 'block';
+        repeatsWarning.textContent = '🔴 No repeats remaining - prescription renewal needed!';
+        repeatsWarning.classList.remove('alert-warning');
+        repeatsWarning.classList.add('alert-danger');
+    } else {
+        repeatsWarning.style.display = 'none';
+    }
     
     new bootstrap.Modal(document.getElementById('medDetailModal')).show();
 }
@@ -295,7 +321,10 @@ function showMedicationDetail(med) {
 async function recordUsage() {
     if (!selectedMedication) return;
     
-    const quantity = prompt('Enter quantity used:', selectedMedication.calcDosageDaily || 1);
+    // Default to weekly dosage instead of daily
+    const defaultQuantity = selectedMedication.calcDosageWeekly || selectedMedication.calcDosageDaily || 1;
+    const quantity = prompt('Enter quantity used:', defaultQuantity);
+    
     if (!quantity || quantity <= 0) return;
     
     try {
@@ -306,7 +335,8 @@ async function recordUsage() {
         });
         
         bootstrap.Modal.getInstance(document.getElementById('medDetailModal')).hide();
-        loadUserMedications();
+        await loadUserMedications();
+        alert('Usage recorded successfully!');
         
     } catch (error) {
         console.error('Error recording usage:', error);
@@ -318,18 +348,36 @@ async function recordUsage() {
 async function recordPurchase() {
     if (!selectedMedication) return;
     
+    // Show warning if no repeats remaining
+    if (selectedMedication.Repeats === 0) {
+        if (!confirm('⚠️ You have no prescription repeats remaining. Do you want to record this purchase anyway (e.g., after getting a new prescription)?')) {
+            return;
+        }
+    }
+    
     const quantity = prompt('Enter quantity purchased:', 100);
     if (!quantity || quantity <= 0) return;
     
     try {
-        await fetch(`${API_URL}/user-med-chart/${selectedMedication.UsrID}/${selectedMedication.MedIDs}/record-purchase`, {
+        const response = await fetch(`${API_URL}/user-med-chart/${selectedMedication.UsrID}/${selectedMedication.MedIDs}/record-purchase`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ quantity: parseInt(quantity) })
         });
         
+        const result = await response.json();
+        
         bootstrap.Modal.getInstance(document.getElementById('medDetailModal')).hide();
-        loadUserMedications();
+        await loadUserMedications();
+        
+        // Show success message with repeats info
+        if (result.repeats_remaining === 0) {
+            alert(`Purchase recorded! ⚠️ No repeats remaining - you'll need a new prescription next time.`);
+        } else if (result.repeats_remaining <= 2) {
+            alert(`Purchase recorded! ${result.repeats_remaining} repeat${result.repeats_remaining === 1 ? '' : 's'} remaining.`);
+        } else {
+            alert('Purchase recorded successfully!');
+        }
         
     } catch (error) {
         console.error('Error recording purchase:', error);

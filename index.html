@@ -189,6 +189,11 @@
                         <span id="modalStrength"></span>
                     </div>
                     
+                    <!-- Low Repeats Warning -->
+                    <div id="repeatsWarning" class="alert alert-warning" style="display: none;">
+                        <!-- Warning message will be inserted here -->
+                    </div>
+                    
                     <hr>
                     
                     <div class="mb-3">
@@ -196,6 +201,14 @@
                         <div class="input-group">
                             <input type="number" class="form-control" id="modalStock" readonly>
                             <span class="input-group-text">units</span>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Repeats Remaining</label>
+                        <div class="input-group">
+                            <input type="number" class="form-control" id="modalRepeats" readonly>
+                            <span class="input-group-text">prescriptions</span>
                         </div>
                     </div>
                     
