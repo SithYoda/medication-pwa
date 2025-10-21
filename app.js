@@ -731,4 +731,3 @@ async function saveStockRepeatsEdit() {
         alert('Failed to update. Please try again.');
     }
 }
-}
