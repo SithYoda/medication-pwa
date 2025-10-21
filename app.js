@@ -149,9 +149,10 @@ function setupEventListeners() {
     document.getElementById('recordPurchaseBtn').addEventListener('click', recordPurchase);
     
     // ADD THESE THREE LINES:
-    document.getElementById('editModeBtn').addEventListener('click', enterEditMode);
-    document.getElementById('saveEditsBtn').addEventListener('click', saveStockRepeatsEdit);
-    document.getElementById('cancelEditBtn').addEventListener('click', exitEditMode);
+    // REMOVE THESE THREE LINES:
+    // document.getElementById('editModeBtn').addEventListener('click', enterEditMode);
+    // document.getElementById('saveEditsBtn').addEventListener('click', saveStockRepeatsEdit);
+    // document.getElementById('cancelEditBtn').addEventListener('click', exitEditMode);
     
     // Tab switching
     document.querySelectorAll('#mainTabs .nav-link').forEach(tab => {
@@ -321,6 +322,11 @@ function showMedicationDetail(med) {
         repeatsWarning.style.display = 'none';
     }
     
+    // Setup edit mode button listeners (need to do this each time modal opens)
+    document.getElementById('editModeBtn').onclick = enterEditMode;
+    document.getElementById('saveEditsBtn').onclick = saveStockRepeatsEdit;
+    document.getElementById('cancelEditBtn').onclick = exitEditMode;
+
     new bootstrap.Modal(document.getElementById('medDetailModal')).show();
 }
 
