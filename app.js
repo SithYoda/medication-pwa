@@ -214,8 +214,9 @@ async function loadUserMedications() {
         displayMedications();
         updateSummary();
         
-        // Load forecast by default
+        // Load forecast and switch to forecast tab
         await loadForecast();
+        switchTab('forecast');  // ADD THIS LINE
         
     } catch (error) {
         console.error('Error loading medications:', error);
@@ -344,11 +345,11 @@ async function recordUsage() {
         
         bootstrap.Modal.getInstance(document.getElementById('medDetailModal')).hide();
         await loadUserMedications();
-        alert('Usage recorded successfully!');
+        await customAlert('Usage recorded successfully!');  // CHANGED
         
     } catch (error) {
         console.error('Error recording usage:', error);
-        alert('Failed to record usage.');
+        await customAlert('Failed to record usage.');  // CHANGED
     }
 }
 
@@ -358,9 +359,8 @@ async function recordPurchase() {
     
     // Show warning if no repeats remaining
     if (selectedMedication.Repeats === 0) {
-        if (!confirm('⚠️ You have no prescription repeats remaining. Do you want to record this purchase anyway (e.g., after getting a new prescription)?')) {
-            return;
-        }
+        const proceed = await customConfirm('⚠️ You have no prescription repeats remaining. Do you want to record this purchase anyway (e.g., after getting a new prescription)?');  // CHANGED
+        if (!proceed) return;
     }
     
     const quantity = prompt('Enter quantity purchased:', 100);
@@ -380,16 +380,16 @@ async function recordPurchase() {
         
         // Show success message with repeats info
         if (result.repeats_remaining === 0) {
-            alert(`Purchase recorded! ⚠️ No repeats remaining - you'll need a new prescription next time.`);
+            await customAlert(`Purchase recorded! ⚠️ No repeats remaining - you'll need a new prescription next time.`);  // CHANGED
         } else if (result.repeats_remaining <= 2) {
-            alert(`Purchase recorded! ${result.repeats_remaining} repeat${result.repeats_remaining === 1 ? '' : 's'} remaining.`);
+            await customAlert(`Purchase recorded! ${result.repeats_remaining} repeat${result.repeats_remaining === 1 ? '' : 's'} remaining.`);  // CHANGED
         } else {
-            alert('Purchase recorded successfully!');
+            await customAlert('Purchase recorded successfully!');  // CHANGED
         }
         
     } catch (error) {
         console.error('Error recording purchase:', error);
-        alert('Failed to record purchase.');
+        await customAlert('Failed to record purchase.');  // CHANGED
     }
 }
 
@@ -696,13 +696,12 @@ async function saveStockRepeatsEdit() {
     const newRepeats = parseInt(document.getElementById('modalRepeats').value);
     
     if (newStock < 0 || newRepeats < 0) {
-        alert('Stock and repeats cannot be negative!');
+        await customAlert('Stock and repeats cannot be negative!');  // CHANGED
         return;
     }
     
-    if (!confirm(`Update stock to ${newStock} and repeats to ${newRepeats}?`)) {
-        return;
-    }
+    const proceed = await customConfirm(`Update stock to ${newStock} and repeats to ${newRepeats}?`);  // CHANGED
+    if (!proceed) return;
     
     try {
         const response = await fetch(`${API_URL}/user-med-chart/${selectedMedication.UsrID}/${selectedMedication.MedIDs}/update-stock-repeats`, {
@@ -720,10 +719,54 @@ async function saveStockRepeatsEdit() {
         
         bootstrap.Modal.getInstance(document.getElementById('medDetailModal')).hide();
         await loadUserMedications();
-        alert('Stock and repeats updated successfully!');
+        await customAlert('Stock and repeats updated successfully!');  // CHANGED
         
     } catch (error) {
         console.error('Error updating stock/repeats:', error);
-        alert('Failed to update. Please try again.');
+        await customAlert('Failed to update. Please try again.');  // CHANGED
     }
+}
+
+// ==================== CUSTOM ALERT/CONFIRM ====================
+
+// Custom alert function
+function customAlert(message) {
+    return new Promise((resolve) => {
+        document.getElementById('customAlertBody').innerHTML = message;
+        document.getElementById('customAlertFooter').innerHTML = `
+            <button type="button" class="btn btn-primary" id="customAlertOkBtn">OK</button>
+        `;
+        
+        const modal = new bootstrap.Modal(document.getElementById('customAlertModal'));
+        modal.show();
+        
+        document.getElementById('customAlertOkBtn').onclick = () => {
+            modal.hide();
+            resolve(true);
+        };
+    });
+}
+
+// Custom confirm function
+function customConfirm(message) {
+    return new Promise((resolve) => {
+        document.getElementById('customAlertBody').innerHTML = message;
+        document.getElementById('customAlertFooter').innerHTML = `
+            <button type="button" class="btn btn-secondary" id="customConfirmCancelBtn">Cancel</button>
+            <button type="button" class="btn btn-primary" id="customConfirmOkBtn">OK</button>
+        `;
+        
+        const modal = new bootstrap.Modal(document.getElementById('customAlertModal'));
+        modal.show();
+        
+        document.getElementById('customConfirmOkBtn').onclick = () => {
+            modal.hide();
+            resolve(true);
+        };
+        
+        document.getElementById('customConfirmCancelBtn').onclick = () => {
+            modal.hide();
+            resolve(false);
+        };
+    });
 }
