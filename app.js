@@ -1,6 +1,7 @@
 // Configuration
 let API_URL = 'https://darthyoda.pythonanywhere.com';
 let currentUserId = null;
+let currentUser = null;
 let currentMedications = [];
 let selectedMedication = null;
 
@@ -10,14 +11,107 @@ if (localStorage.getItem('apiUrl')) {
     document.getElementById('apiUrlInput').value = API_URL;
 }
 
+// Check if user is logged in
+function checkAuth() {
+    const userData = sessionStorage.getItem('currentUser');
+    if (userData) {
+        currentUser = JSON.parse(userData);
+        showMainApp();
+    } else {
+        showLogin();
+    }
+}
+
+// Show login screen
+function showLogin() {
+    document.getElementById('loginSection').style.display = 'block';
+    document.getElementById('userSelection').style.display = 'none';
+    document.getElementById('summarySection').style.display = 'none';
+    document.getElementById('mainTabs').style.display = 'none';
+    document.querySelectorAll('.content-section').forEach(s => s.style.display = 'none');
+    if (document.getElementById('logoutBtn')) {
+        document.getElementById('logoutBtn').style.display = 'none';
+    }
+    if (document.getElementById('currentUserName')) {
+        document.getElementById('currentUserName').style.display = 'none';
+    }
+}
+
+// Show main app
+function showMainApp() {
+    document.getElementById('loginSection').style.display = 'none';
+    document.getElementById('userSelection').style.display = 'block';
+    if (document.getElementById('logoutBtn')) {
+        document.getElementById('logoutBtn').style.display = 'inline-block';
+    }
+    if (document.getElementById('currentUserName')) {
+        document.getElementById('currentUserName').style.display = 'inline-block';
+        document.getElementById('currentUserName').textContent = currentUser.Users;
+    }
+    loadUsers();
+}
+
+// Handle Google login (called by Google Sign-In)
+async function handleGoogleLogin(response) {
+    try {
+        // Send the Google token to our backend for verification
+        const apiResponse = await fetch(`${API_URL}/auth/google`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: response.credential })
+        });
+        
+        if (!apiResponse.ok) {
+            const error = await apiResponse.json();
+            throw new Error(error.description || 'Authentication failed');
+        }
+        
+        const userData = await apiResponse.json();
+        currentUser = userData;
+        sessionStorage.setItem('currentUser', JSON.stringify(userData));
+        
+        showMainApp();
+        
+    } catch (error) {
+        console.error('Login error:', error);
+        const errorDiv = document.getElementById('loginError');
+        errorDiv.textContent = error.message || 'Login failed. Please contact administrator.';
+        errorDiv.style.display = 'block';
+        
+        setTimeout(() => {
+            errorDiv.style.display = 'none';
+        }, 5000);
+    }
+}
+
+// Handle logout
+function handleLogout() {
+    if (confirm('Are you sure you want to logout?')) {
+        // Sign out from Google
+        if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
+            google.accounts.id.disableAutoSelect();
+        }
+        
+        // Clear local session
+        sessionStorage.removeItem('currentUser');
+        currentUser = null;
+        currentUserId = null;
+        currentMedications = [];
+        showLogin();
+    }
+}
+
 // Initialize app
 document.addEventListener('DOMContentLoaded', function() {
-    loadUsers();
+    checkAuth();
     setupEventListeners();
 });
 
 // Setup event listeners
 function setupEventListeners() {
+    if (document.getElementById('logoutBtn')) {
+        document.getElementById('logoutBtn').addEventListener('click', handleLogout);
+    }
     document.getElementById('loadUserBtn').addEventListener('click', loadUserMedications);
     document.getElementById('settingsBtn').addEventListener('click', () => {
         new bootstrap.Modal(document.getElementById('settingsModal')).show();
