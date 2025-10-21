@@ -136,6 +136,7 @@ document.addEventListener('DOMContentLoaded', function() {
     setupEventListeners();
 });
 
+// Setup event listeners
 function setupEventListeners() {
     if (document.getElementById('logoutBtn')) {
         document.getElementById('logoutBtn').addEventListener('click', handleLogout);
@@ -147,12 +148,6 @@ function setupEventListeners() {
     document.getElementById('saveSettingsBtn').addEventListener('click', saveSettings);
     document.getElementById('recordUsageBtn').addEventListener('click', recordUsage);
     document.getElementById('recordPurchaseBtn').addEventListener('click', recordPurchase);
-    
-    // ADD THESE THREE LINES:
-    // REMOVE THESE THREE LINES:
-    // document.getElementById('editModeBtn').addEventListener('click', enterEditMode);
-    // document.getElementById('saveEditsBtn').addEventListener('click', saveStockRepeatsEdit);
-    // document.getElementById('cancelEditBtn').addEventListener('click', exitEditMode);
     
     // Tab switching
     document.querySelectorAll('#mainTabs .nav-link').forEach(tab => {
@@ -326,7 +321,7 @@ function showMedicationDetail(med) {
     document.getElementById('editModeBtn').onclick = enterEditMode;
     document.getElementById('saveEditsBtn').onclick = saveStockRepeatsEdit;
     document.getElementById('cancelEditBtn').onclick = exitEditMode;
-
+    
     new bootstrap.Modal(document.getElementById('medDetailModal')).show();
 }
 
@@ -669,6 +664,7 @@ async function toggleMedicationActive(medId, currentStatus) {
         console.error('Error toggling medication status:', error);
         alert('Failed to update medication status.');
     }
+}
 
 // ==================== EDIT MODE FOR STOCK/REPEATS ====================
 
