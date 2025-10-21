@@ -115,9 +115,7 @@ async function handleGoogleLogin(response) {
 
 // Handle logout
 function handleLogout() {
-    showConfirm('Are you sure you want to logout?', (confirmed) => {
-        if (!confirmed) return;
-        
+    if (confirm('Are you sure you want to logout?')) {
         // Sign out from Google
         if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
             google.accounts.id.disableAutoSelect();
@@ -129,7 +127,7 @@ function handleLogout() {
         currentUserId = null;
         currentMedications = [];
         showLogin();
-    });
+    }
 }
 
 // Initialize app
@@ -151,6 +149,11 @@ function setupEventListeners() {
     document.getElementById('recordUsageBtn').addEventListener('click', recordUsage);
     document.getElementById('recordPurchaseBtn').addEventListener('click', recordPurchase);
     
+    // Timeline month selector
+    document.querySelectorAll('input[name="timelineMonths"]').forEach(radio => {
+        radio.addEventListener('change', loadTimeline);
+    });
+    
     // Tab switching
     document.querySelectorAll('#mainTabs .nav-link').forEach(tab => {
         tab.addEventListener('click', (e) => {
@@ -170,7 +173,7 @@ function saveSettings() {
     localStorage.setItem('apiUrl', apiUrl);
     API_URL = apiUrl;
     bootstrap.Modal.getInstance(document.getElementById('settingsModal')).hide();
-    showAlert('Settings saved! Please reload to apply changes.');
+    customAlert('Settings saved! Please reload to apply changes.');
 }
 
 // Load users
@@ -190,7 +193,7 @@ async function loadUsers() {
         });
     } catch (error) {
         console.error('Error loading users:', error);
-        showAlert('Failed to load users. Check your connection.');
+        customAlert('Failed to load users. Check your connection.');
     }
 }
 
@@ -199,7 +202,7 @@ async function loadUserMedications() {
     const userId = document.getElementById('userSelect').value;
     
     if (!userId) {
-        showAlert('Please select a user');
+        customAlert('Please select a user');
         return;
     }
     
@@ -216,12 +219,13 @@ async function loadUserMedications() {
         displayMedications();
         updateSummary();
         
-        // Switch to forecast tab and load forecast
+        // Load forecast and switch to forecast tab
+        await loadForecast();
         switchTab('forecast');
         
     } catch (error) {
         console.error('Error loading medications:', error);
-        showAlert('Failed to load medications.');
+        customAlert('Failed to load medications.');
     }
 }
 
@@ -346,11 +350,11 @@ async function recordUsage() {
         
         bootstrap.Modal.getInstance(document.getElementById('medDetailModal')).hide();
         await loadUserMedications();
-        showAlert('Usage recorded successfully!');
+        await customAlert('Usage recorded successfully!');
         
     } catch (error) {
         console.error('Error recording usage:', error);
-        showAlert('Failed to record usage.');
+        await customAlert('Failed to record usage.');
     }
 }
 
@@ -360,17 +364,10 @@ async function recordPurchase() {
     
     // Show warning if no repeats remaining
     if (selectedMedication.Repeats === 0) {
-        showConfirm('⚠️ You have no prescription repeats remaining. Do you want to record this purchase anyway (e.g., after getting a new prescription)?', async (confirmed) => {
-            if (!confirmed) return;
-            await processPurchase();
-        });
-    } else {
-        await processPurchase();
+        const proceed = await customConfirm('⚠️ You have no prescription repeats remaining. Do you want to record this purchase anyway (e.g., after getting a new prescription)?');
+        if (!proceed) return;
     }
-}
-
-// Helper function to process purchase
-async function processPurchase() {
+    
     const quantity = prompt('Enter quantity purchased:', 100);
     if (!quantity || quantity <= 0) return;
     
@@ -388,16 +385,16 @@ async function processPurchase() {
         
         // Show success message with repeats info
         if (result.repeats_remaining === 0) {
-            showAlert(`Purchase recorded! ⚠️ No repeats remaining - you'll need a new prescription next time.`);
+            await customAlert(`Purchase recorded! ⚠️ No repeats remaining - you'll need a new prescription next time.`);
         } else if (result.repeats_remaining <= 2) {
-            showAlert(`Purchase recorded! ${result.repeats_remaining} repeat${result.repeats_remaining === 1 ? '' : 's'} remaining.`);
+            await customAlert(`Purchase recorded! ${result.repeats_remaining} repeat${result.repeats_remaining === 1 ? '' : 's'} remaining.`);
         } else {
-            showAlert('Purchase recorded successfully!');
+            await customAlert('Purchase recorded successfully!');
         }
         
     } catch (error) {
         console.error('Error recording purchase:', error);
-        showAlert('Failed to record purchase.');
+        await customAlert('Failed to record purchase.');
     }
 }
 
@@ -426,6 +423,9 @@ function switchTab(tabName) {
     } else if (tabName === 'forecast') {
         document.getElementById('forecastView').style.display = 'block';
         loadForecast();
+    } else if (tabName === 'timeline') {
+        document.getElementById('timelineView').style.display = 'block';
+        loadTimeline();
     } else if (tabName === 'manage') {
         document.getElementById('manageView').style.display = 'block';
         loadManageMedications();
@@ -513,6 +513,121 @@ function formatDate(dateString) {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+// ==================== TIMELINE FORECAST ====================
+
+// Load timeline
+async function loadTimeline() {
+    if (!currentUserId) return;
+    
+    // Get selected month range
+    const months = document.querySelector('input[name="timelineMonths"]:checked').value;
+    
+    try {
+        const response = await fetch(`${API_URL}/user-med-chart/user/${currentUserId}/timeline?months=${months}`);
+        const timeline = await response.json();
+        
+        displayTimeline(timeline);
+        
+    } catch (error) {
+        console.error('Error loading timeline:', error);
+        await customAlert('Failed to load timeline.');
+    }
+}
+
+// Display timeline
+function displayTimeline(timeline) {
+    const container = document.getElementById('timelineEvents');
+    container.innerHTML = '';
+    
+    if (!timeline.timeline || timeline.timeline.length === 0) {
+        container.innerHTML = '<p class="text-center text-muted">No timeline events found.</p>';
+        return;
+    }
+    
+    // Calculate totals
+    let totalPurchases = 0;
+    let totalPrescriptions = 0;
+    
+    timeline.timeline.forEach(month => {
+        totalPurchases += month.events.filter(e => e.type === 'purchase').length;
+        totalPrescriptions += month.prescription_renewals_needed;
+    });
+    
+    document.getElementById('totalPurchases').textContent = totalPurchases;
+    document.getElementById('totalPrescriptions').textContent = totalPrescriptions;
+    
+    // Display events by month
+    timeline.timeline.forEach(monthData => {
+        const monthCard = createMonthCard(monthData);
+        container.appendChild(monthCard);
+    });
+}
+
+// Create month card
+function createMonthCard(monthData) {
+    const card = document.createElement('div');
+    card.className = 'card mb-3';
+    
+    const purchaseEvents = monthData.events.filter(e => e.type === 'purchase');
+    const prescriptionEvents = monthData.events.filter(e => e.type === 'prescription_renewal');
+    
+    let eventsHTML = '';
+    
+    monthData.events.forEach(event => {
+        const eventDate = new Date(event.date);
+        const dateStr = eventDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        
+        const isPrescription = event.type === 'prescription_renewal';
+        const badgeColor = isPrescription ? 'danger' : 'success';
+        const icon = isPrescription ? 'file-medical' : 'cart';
+        const label = isPrescription ? 'New Script' : 'Purchase';
+        
+        eventsHTML += `
+            <div class="d-flex justify-content-between align-items-start mb-2 pb-2 border-bottom">
+                <div>
+                    <div>
+                        <span class="badge bg-${badgeColor} me-2">
+                            <i class="bi bi-${icon}"></i> ${label}
+                        </span>
+                        <strong>${dateStr}</strong>
+                    </div>
+                    <div class="mt-1">
+                        <small class="text-muted">
+                            ${event.medication_name} (${event.common_name})<br>
+                            ${event.strength} - Qty: ${event.quantity}
+                            ${event.price ? ` - $${event.price.toFixed(2)}` : ''}
+                        </small>
+                    </div>
+                    ${!isPrescription && event.repeats_after !== undefined ? 
+                        `<small class="text-muted">Repeats after: ${event.repeats_after}</small>` : ''}
+                </div>
+            </div>
+        `;
+    });
+    
+    card.innerHTML = `
+        <div class="card-header bg-light">
+            <div class="d-flex justify-content-between align-items-center">
+                <h6 class="mb-0">
+                    <i class="bi bi-calendar-month"></i> ${monthData.month}
+                </h6>
+                <div>
+                    ${prescriptionEvents.length > 0 ? 
+                        `<span class="badge bg-danger me-1">${prescriptionEvents.length} Script${prescriptionEvents.length > 1 ? 's' : ''}</span>` : ''}
+                    <span class="badge bg-primary">${purchaseEvents.length} Purchase${purchaseEvents.length > 1 ? 's' : ''}</span>
+                    ${monthData.total_cost > 0 ? 
+                        `<span class="badge bg-success ms-1">$${monthData.total_cost.toFixed(2)}</span>` : ''}
+                </div>
+            </div>
+        </div>
+        <div class="card-body">
+            ${eventsHTML}
+        </div>
+    `;
+    
+    return card;
+}
+
 // ==================== MEDICATION MANAGEMENT ====================
 
 // Show add medication form
@@ -540,7 +655,7 @@ async function saveMedication() {
     
     // Validation
     if (!medData.MedicationName || !medData.CommonName || !medData.MedicationStrength || !medData.QtyRepeat) {
-        showAlert('Please fill in all required fields');
+        await customAlert('Please fill in all required fields');
         return;
     }
     
@@ -561,11 +676,11 @@ async function saveMedication() {
         
         bootstrap.Modal.getInstance(document.getElementById('medicationFormModal')).hide();
         await loadManageMedications();
-        showAlert(medId ? 'Medication updated successfully!' : 'Medication added successfully!');
+        await customAlert(medId ? 'Medication updated successfully!' : 'Medication added successfully!');
         
     } catch (error) {
         console.error('Error saving medication:', error);
-        showAlert(`Error: ${error.message}`);
+        await customAlert(`Error: ${error.message}`);
     }
 }
 
@@ -590,7 +705,7 @@ async function loadManageMedications() {
         
     } catch (error) {
         console.error('Error loading medications:', error);
-        showAlert('Failed to load medications.');
+        await customAlert('Failed to load medications.');
     }
 }
 
@@ -646,33 +761,31 @@ async function editMedication(medId) {
         
     } catch (error) {
         console.error('Error loading medication:', error);
-        showAlert('Failed to load medication details.');
+        await customAlert('Failed to load medication details.');
     }
 }
 
 // Toggle medication active status
 async function toggleMedicationActive(medId, currentStatus) {
     const action = currentStatus ? 'deactivate' : 'activate';
+    const proceed = await customConfirm(`Are you sure you want to ${action} this medication?`);
+    if (!proceed) return;
     
-    showConfirm(`Are you sure you want to ${action} this medication?`, async (confirmed) => {
-        if (!confirmed) return;
+    try {
+        const response = await fetch(`${API_URL}/medications/${medId}/toggle-active`, {
+            method: 'POST'
+        });
         
-        try {
-            const response = await fetch(`${API_URL}/medications/${medId}/toggle-active`, {
-                method: 'POST'
-            });
-            
-            if (!response.ok) {
-                throw new Error('Failed to toggle medication status');
-            }
-            
-            await loadManageMedications();
-            
-        } catch (error) {
-            console.error('Error toggling medication status:', error);
-            showAlert('Failed to update medication status.');
+        if (!response.ok) {
+            throw new Error('Failed to toggle medication status');
         }
-    });
+        
+        await loadManageMedications();
+        
+    } catch (error) {
+        console.error('Error toggling medication status:', error);
+        await customAlert('Failed to update medication status.');
+    }
 }
 
 // ==================== EDIT MODE FOR STOCK/REPEATS ====================
@@ -698,69 +811,84 @@ function exitEditMode() {
 }
 
 // Save edited stock and repeats
-function saveStockRepeatsEdit() {
+async function saveStockRepeatsEdit() {
     if (!selectedMedication) return;
     
     const newStock = parseInt(document.getElementById('modalStock').value);
     const newRepeats = parseInt(document.getElementById('modalRepeats').value);
     
     if (newStock < 0 || newRepeats < 0) {
-        showAlert('Stock and repeats cannot be negative!');
+        await customAlert('Stock and repeats cannot be negative!');
         return;
     }
     
-    showConfirm(`Update stock to ${newStock} and repeats to ${newRepeats}?`, async (confirmed) => {
-        if (!confirmed) return;
+    const proceed = await customConfirm(`Update stock to ${newStock} and repeats to ${newRepeats}?`);
+    if (!proceed) return;
+    
+    try {
+        const response = await fetch(`${API_URL}/user-med-chart/${selectedMedication.UsrID}/${selectedMedication.MedIDs}/update-stock-repeats`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                stock: newStock,
+                repeats: newRepeats
+            })
+        });
         
-        try {
-            const response = await fetch(`${API_URL}/user-med-chart/${selectedMedication.UsrID}/${selectedMedication.MedIDs}/update-stock-repeats`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    stock: newStock,
-                    repeats: newRepeats
-                })
-            });
-            
-            if (!response.ok) {
-                throw new Error('Failed to update');
-            }
-            
-            bootstrap.Modal.getInstance(document.getElementById('medDetailModal')).hide();
-            await loadUserMedications();
-            showAlert('Stock and repeats updated successfully!');
-            
-        } catch (error) {
-            console.error('Error updating stock/repeats:', error);
-            showAlert('Failed to update. Please try again.');
+        if (!response.ok) {
+            throw new Error('Failed to update');
         }
+        
+        bootstrap.Modal.getInstance(document.getElementById('medDetailModal')).hide();
+        await loadUserMedications();
+        await customAlert('Stock and repeats updated successfully!');
+        
+    } catch (error) {
+        console.error('Error updating stock/repeats:', error);
+        await customAlert('Failed to update. Please try again.');
+    }
+}
+
+// ==================== CUSTOM ALERT/CONFIRM ====================
+
+// Custom alert function
+function customAlert(message) {
+    return new Promise((resolve) => {
+        document.getElementById('customAlertBody').innerHTML = message;
+        document.getElementById('customAlertFooter').innerHTML = `
+            <button type="button" class="btn btn-primary" id="customAlertOkBtn">OK</button>
+        `;
+        
+        const modal = new bootstrap.Modal(document.getElementById('customAlertModal'));
+        modal.show();
+        
+        document.getElementById('customAlertOkBtn').onclick = () => {
+            modal.hide();
+            resolve(true);
+        };
     });
 }
 
-// ==================== CUSTOM DIALOGS ====================
-
-// Custom alert function
-function showAlert(message) {
-    document.getElementById('customAlertBody').innerHTML = message;
-    new bootstrap.Modal(document.getElementById('customAlertModal')).show();
-}
-
 // Custom confirm function
-function showConfirm(message, callback) {
-    document.getElementById('customConfirmBody').innerHTML = message;
-    const modal = new bootstrap.Modal(document.getElementById('customConfirmModal'));
-    
-    // Handle OK button
-    document.getElementById('confirmOkBtn').onclick = () => {
-        modal.hide();
-        callback(true);
-    };
-    
-    // Handle Cancel button
-    document.getElementById('confirmCancelBtn').onclick = () => {
-        modal.hide();
-        callback(false);
-    };
-    
-    modal.show();
+function customConfirm(message) {
+    return new Promise((resolve) => {
+        document.getElementById('customAlertBody').innerHTML = message;
+        document.getElementById('customAlertFooter').innerHTML = `
+            <button type="button" class="btn btn-secondary" id="customConfirmCancelBtn">Cancel</button>
+            <button type="button" class="btn btn-primary" id="customConfirmOkBtn">OK</button>
+        `;
+        
+        const modal = new bootstrap.Modal(document.getElementById('customAlertModal'));
+        modal.show();
+        
+        document.getElementById('customConfirmOkBtn').onclick = () => {
+            modal.hide();
+            resolve(true);
+        };
+        
+        document.getElementById('customConfirmCancelBtn').onclick = () => {
+            modal.hide();
+            resolve(false);
+        };
+    });
 }
