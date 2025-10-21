@@ -61,12 +61,37 @@ async function handleGoogleLogin(response) {
             body: JSON.stringify({ token: response.credential })
         });
         
-        if (!apiResponse.ok) {
-            const error = await apiResponse.json();
-            throw new Error(error.description || 'Authentication failed');
+        // Try to parse the response as JSON
+        let errorData;
+        try {
+            errorData = await apiResponse.json();
+        } catch (e) {
+            // If response is not JSON (e.g., HTML error page), show generic error
+            throw new Error('Unable to connect to the server. Please try again later.');
         }
         
-        const userData = await apiResponse.json();
+        if (!apiResponse.ok) {
+            // Handle specific error types with user-friendly messages
+            let errorMessage;
+            
+            switch (errorData.error) {
+                case 'user_not_found':
+                    errorMessage = errorData.message || "Sorry, your email address is not authorized to use this app.";
+                    break;
+                case 'invalid_token':
+                    errorMessage = "Your login session expired. Please try signing in again.";
+                    break;
+                case 'no_email':
+                    errorMessage = "Unable to retrieve your email from Google. Please check your Google account settings.";
+                    break;
+                default:
+                    errorMessage = errorData.message || "Login failed. Please try again.";
+            }
+            
+            throw new Error(errorMessage);
+        }
+        
+        const userData = errorData;
         currentUser = userData;
         sessionStorage.setItem('currentUser', JSON.stringify(userData));
         
@@ -75,12 +100,16 @@ async function handleGoogleLogin(response) {
     } catch (error) {
         console.error('Login error:', error);
         const errorDiv = document.getElementById('loginError');
-        errorDiv.textContent = error.message || 'Login failed. Please contact administrator.';
+        errorDiv.innerHTML = `
+            <i class="bi bi-exclamation-triangle-fill"></i> 
+            ${error.message}
+        `;
         errorDiv.style.display = 'block';
         
+        // Keep error visible longer (10 seconds instead of 5)
         setTimeout(() => {
             errorDiv.style.display = 'none';
-        }, 5000);
+        }, 10000);
     }
 }
 
