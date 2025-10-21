@@ -203,7 +203,7 @@
                             <span class="input-group-text">units</span>
                         </div>
                     </div>
-                        
+                    
                     <div class="mb-3">
                         <label class="form-label fw-bold">Repeats Remaining</label>
                         <div class="input-group">
@@ -224,12 +224,26 @@
                     
                     <hr>
                     
-                    <div class="d-grid gap-2">
+                    <!-- Normal Mode Buttons -->
+                    <div id="normalModeButtons" class="d-grid gap-2">
                         <button class="btn btn-outline-primary" id="recordUsageBtn">
                             <i class="bi bi-dash-circle"></i> Record Usage
                         </button>
                         <button class="btn btn-success" id="recordPurchaseBtn">
                             <i class="bi bi-plus-circle"></i> Record Purchase
+                        </button>
+                        <button class="btn btn-outline-secondary" id="editModeBtn">
+                            <i class="bi bi-pencil"></i> Edit Stock/Repeats
+                        </button>
+                    </div>
+                    
+                    <!-- Edit Mode Buttons -->
+                    <div id="editModeButtons" class="d-grid gap-2" style="display: none;">
+                        <button class="btn btn-primary" id="saveEditsBtn">
+                            <i class="bi bi-check-circle"></i> Save Changes
+                        </button>
+                        <button class="btn btn-outline-secondary" id="cancelEditBtn">
+                            <i class="bi bi-x-circle"></i> Cancel
                         </button>
                     </div>
                 </div>

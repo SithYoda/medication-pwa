@@ -136,7 +136,6 @@ document.addEventListener('DOMContentLoaded', function() {
     setupEventListeners();
 });
 
-// Setup event listeners
 function setupEventListeners() {
     if (document.getElementById('logoutBtn')) {
         document.getElementById('logoutBtn').addEventListener('click', handleLogout);
@@ -148,6 +147,11 @@ function setupEventListeners() {
     document.getElementById('saveSettingsBtn').addEventListener('click', saveSettings);
     document.getElementById('recordUsageBtn').addEventListener('click', recordUsage);
     document.getElementById('recordPurchaseBtn').addEventListener('click', recordPurchase);
+    
+    // ADD THESE THREE LINES:
+    document.getElementById('editModeBtn').addEventListener('click', enterEditMode);
+    document.getElementById('saveEditsBtn').addEventListener('click', saveStockRepeatsEdit);
+    document.getElementById('cancelEditBtn').addEventListener('click', exitEditMode);
     
     // Tab switching
     document.querySelectorAll('#mainTabs .nav-link').forEach(tab => {
@@ -296,20 +300,23 @@ function showMedicationDetail(med) {
     document.getElementById('modalCommonName').textContent = med.CommonName;
     document.getElementById('modalStrength').textContent = med.MedicationStrength;
     document.getElementById('modalStock').value = med.Stocktake;
-    document.getElementById('modalRepeats').value = med.Repeats;  // ADD THIS LINE
+    document.getElementById('modalRepeats').value = med.Repeats;
     document.getElementById('modalDaysRemaining').value = `${med.calcDaysRemaining} days`;
     document.getElementById('modalRunOutDate').value = med.calcRunOutDate ? formatDate(med.calcRunOutDate) : 'N/A';
+    
+    // Reset to normal mode
+    exitEditMode();
     
     // Show low repeats warning
     const repeatsWarning = document.getElementById('repeatsWarning');
     if (med.Repeats <= 2 && med.Repeats > 0) {
         repeatsWarning.style.display = 'block';
-        repeatsWarning.textContent = `⚠️ Only ${med.Repeats} repeat${med.Repeats === 1 ? '' : 's'} remaining!`;
+        repeatsWarning.className = 'alert alert-warning';
+        repeatsWarning.innerHTML = `<i class="bi bi-exclamation-triangle-fill"></i> Only ${med.Repeats} repeat${med.Repeats === 1 ? '' : 's'} remaining!`;
     } else if (med.Repeats === 0) {
         repeatsWarning.style.display = 'block';
-        repeatsWarning.textContent = '🔴 No repeats remaining - prescription renewal needed!';
-        repeatsWarning.classList.remove('alert-warning');
-        repeatsWarning.classList.add('alert-danger');
+        repeatsWarning.className = 'alert alert-danger';
+        repeatsWarning.innerHTML = '<i class="bi bi-exclamation-circle-fill"></i> No repeats remaining - prescription renewal needed!';
     } else {
         repeatsWarning.style.display = 'none';
     }
@@ -656,4 +663,64 @@ async function toggleMedicationActive(medId, currentStatus) {
         console.error('Error toggling medication status:', error);
         alert('Failed to update medication status.');
     }
+
+// Enable edit mode for stock and repeats
+function enterEditMode() {
+    document.getElementById('modalStock').removeAttribute('readonly');
+    document.getElementById('modalRepeats').removeAttribute('readonly');
+    document.getElementById('modalStock').classList.add('border-primary');
+    document.getElementById('modalRepeats').classList.add('border-primary');
+    document.getElementById('normalModeButtons').style.display = 'none';
+    document.getElementById('editModeButtons').style.display = 'block';
+}
+
+// Exit edit mode
+function exitEditMode() {
+    document.getElementById('modalStock').setAttribute('readonly', true);
+    document.getElementById('modalRepeats').setAttribute('readonly', true);
+    document.getElementById('modalStock').classList.remove('border-primary');
+    document.getElementById('modalRepeats').classList.remove('border-primary');
+    document.getElementById('normalModeButtons').style.display = 'block';
+    document.getElementById('editModeButtons').style.display = 'none';
+}
+
+// Save edited stock and repeats
+async function saveStockRepeatsEdit() {
+    if (!selectedMedication) return;
+    
+    const newStock = parseInt(document.getElementById('modalStock').value);
+    const newRepeats = parseInt(document.getElementById('modalRepeats').value);
+    
+    if (newStock < 0 || newRepeats < 0) {
+        alert('Stock and repeats cannot be negative!');
+        return;
+    }
+    
+    if (!confirm(`Update stock to ${newStock} and repeats to ${newRepeats}?`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_URL}/user-med-chart/${selectedMedication.UsrID}/${selectedMedication.MedIDs}/update-stock-repeats`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                stock: newStock,
+                repeats: newRepeats
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to update');
+        }
+        
+        bootstrap.Modal.getInstance(document.getElementById('medDetailModal')).hide();
+        await loadUserMedications();
+        alert('Stock and repeats updated successfully!');
+        
+    } catch (error) {
+        console.error('Error updating stock/repeats:', error);
+        alert('Failed to update. Please try again.');
+    }
+}
 }
