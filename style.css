@@ -84,3 +84,16 @@ body {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
+
+/* Make tabs more compact on mobile */
+@media (max-width: 576px) {
+    .nav-tabs .nav-link {
+        font-size: 0.85rem;
+        padding: 0.5rem 0.5rem;
+    }
+    
+    .nav-tabs .nav-link i {
+        display: block;
+        margin-bottom: 0.25rem;
+    }
+}
