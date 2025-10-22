@@ -136,7 +136,6 @@ document.addEventListener('DOMContentLoaded', function() {
     setupEventListeners();
 });
 
-// Setup event listeners
 function setupEventListeners() {
     if (document.getElementById('logoutBtn')) {
         document.getElementById('logoutBtn').addEventListener('click', handleLogout);
@@ -165,6 +164,17 @@ function setupEventListeners() {
     // Medication management
     document.getElementById('addMedicationBtn').addEventListener('click', showAddMedicationForm);
     document.getElementById('saveMedicationBtn').addEventListener('click', saveMedication);
+    
+    // Pharmacy management
+    document.getElementById('addPharmacyBtn').addEventListener('click', showAddPharmacyForm);
+    document.getElementById('savePharmacyBtn').addEventListener('click', savePharmacy);
+    
+    // Share functionality - ADD THESE LINES
+    document.getElementById('shareForecastBtn').addEventListener('click', showShareModal);
+    document.getElementById('shareEmailBtn').addEventListener('click', shareViaEmail);
+    document.getElementById('shareSMSBtn').addEventListener('click', shareViaSMS);
+    document.getElementById('copyToClipboardBtn').addEventListener('click', copyToClipboard);
+    document.getElementById('showQRCodeBtn').addEventListener('click', generateQRCode);
 }
 
 // Save settings
@@ -435,6 +445,9 @@ function switchTab(tabName) {
     } else if (tabName === 'manage') {
         document.getElementById('manageView').style.display = 'block';
         loadManageMedications();
+    } else if (tabName === 'pharmacies') {  // ADD THIS CASE
+        document.getElementById('pharmaciesView').style.display = 'block';
+        loadPharmacies();
     }
 }
 
@@ -797,6 +810,165 @@ async function toggleMedicationActive(medId, currentStatus) {
     }
 }
 
+// ==================== PHARMACY MANAGEMENT ====================
+
+// Show add pharmacy form
+function showAddPharmacyForm() {
+    document.getElementById('pharmacyFormTitle').textContent = 'Add Pharmacy';
+    document.getElementById('editPharmacyId').value = '';
+    document.getElementById('pharmacyName').value = '';
+    document.getElementById('pharmacyPhone').value = '';
+    document.getElementById('pharmacyFax').value = '';
+    document.getElementById('pharmacyEmail').value = '';
+    document.getElementById('pharmacyAddress').value = '';
+    new bootstrap.Modal(document.getElementById('pharmacyFormModal')).show();
+}
+
+// Save pharmacy (add or edit)
+async function savePharmacy() {
+    const pharmacyId = document.getElementById('editPharmacyId').value;
+    const pharmacyData = {
+        Name: document.getElementById('pharmacyName').value.trim(),
+        Phone: document.getElementById('pharmacyPhone').value.trim(),
+        Fax: document.getElementById('pharmacyFax').value.trim(),
+        Email: document.getElementById('pharmacyEmail').value.trim(),
+        Address: document.getElementById('pharmacyAddress').value.trim()
+    };
+    
+    // Validation
+    if (!pharmacyData.Name) {
+        await customAlert('Please enter pharmacy name');
+        return;
+    }
+    
+    try {
+        const url = pharmacyId ? `${API_URL}/pharmacies/${pharmacyId}` : `${API_URL}/pharmacies`;
+        const method = pharmacyId ? 'PUT' : 'POST';
+        
+        const response = await fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(pharmacyData)
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.description || 'Failed to save pharmacy');
+        }
+        
+        bootstrap.Modal.getInstance(document.getElementById('pharmacyFormModal')).hide();
+        await loadPharmacies();
+        await customAlert(pharmacyId ? 'Pharmacy updated successfully!' : 'Pharmacy added successfully!');
+        
+    } catch (error) {
+        console.error('Error saving pharmacy:', error);
+        await customAlert(`Error: ${error.message}`);
+    }
+}
+
+// Load pharmacies
+async function loadPharmacies() {
+    try {
+        const response = await fetch(`${API_URL}/pharmacies?include_inactive=true`);
+        const pharmacies = await response.json();
+        
+        const container = document.getElementById('pharmaciesList');
+        container.innerHTML = '';
+        
+        if (pharmacies.length === 0) {
+            container.innerHTML = '<p class="text-center text-muted">No pharmacies found.</p>';
+            return;
+        }
+        
+        pharmacies.forEach(pharmacy => {
+            const card = createPharmacyCard(pharmacy);
+            container.appendChild(card);
+        });
+        
+    } catch (error) {
+        console.error('Error loading pharmacies:', error);
+        await customAlert('Failed to load pharmacies.');
+    }
+}
+
+// Create pharmacy card
+function createPharmacyCard(pharmacy) {
+    const card = document.createElement('div');
+    card.className = `card mb-2 ${!pharmacy.Active ? 'border-secondary' : ''}`;
+    
+    card.innerHTML = `
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start">
+                <div class="flex-grow-1">
+                    <h6 class="card-title mb-1">
+                        <i class="bi bi-shop"></i> ${pharmacy.Name}
+                        ${!pharmacy.Active ? '<span class="badge bg-secondary ms-2">Inactive</span>' : ''}
+                    </h6>
+                    ${pharmacy.Phone ? `<small class="text-muted d-block"><i class="bi bi-telephone"></i> ${pharmacy.Phone}</small>` : ''}
+                    ${pharmacy.Email ? `<small class="text-muted d-block"><i class="bi bi-envelope"></i> ${pharmacy.Email}</small>` : ''}
+                    ${pharmacy.Address ? `<small class="text-muted d-block"><i class="bi bi-geo-alt"></i> ${pharmacy.Address}</small>` : ''}
+                </div>
+                <div class="btn-group-vertical btn-group-sm">
+                    <button class="btn btn-outline-primary" onclick="editPharmacy(${pharmacy.PharmacyID})">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn btn-outline-${pharmacy.Active ? 'warning' : 'success'}" 
+                            onclick="togglePharmacyActive(${pharmacy.PharmacyID}, ${pharmacy.Active})">
+                        <i class="bi bi-${pharmacy.Active ? 'archive' : 'arrow-counterclockwise'}"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    return card;
+}
+
+// Edit pharmacy
+async function editPharmacy(pharmacyId) {
+    try {
+        const response = await fetch(`${API_URL}/pharmacies/${pharmacyId}`);
+        const pharmacy = await response.json();
+        
+        document.getElementById('pharmacyFormTitle').textContent = 'Edit Pharmacy';
+        document.getElementById('editPharmacyId').value = pharmacy.PharmacyID;
+        document.getElementById('pharmacyName').value = pharmacy.Name;
+        document.getElementById('pharmacyPhone').value = pharmacy.Phone || '';
+        document.getElementById('pharmacyFax').value = pharmacy.Fax || '';
+        document.getElementById('pharmacyEmail').value = pharmacy.Email || '';
+        document.getElementById('pharmacyAddress').value = pharmacy.Address || '';
+        
+        new bootstrap.Modal(document.getElementById('pharmacyFormModal')).show();
+        
+    } catch (error) {
+        console.error('Error loading pharmacy:', error);
+        await customAlert('Failed to load pharmacy details.');
+    }
+}
+
+// Toggle pharmacy active status
+async function togglePharmacyActive(pharmacyId, currentStatus) {
+    const action = currentStatus ? 'deactivate' : 'activate';
+    const proceed = await customConfirm(`Are you sure you want to ${action} this pharmacy?`);
+    if (!proceed) return;
+    
+    try {
+        const response = await fetch(`${API_URL}/pharmacies/${pharmacyId}/toggle-active`, {
+            method: 'POST'
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to toggle pharmacy status');
+        }
+        
+        await loadPharmacies();
+        
+    } catch (error) {
+        console.error('Error toggling pharmacy status:', error);
+        await customAlert('Failed to update pharmacy status.');
+    }
+}
+
 // ==================== EDIT MODE FOR STOCK/REPEATS ====================
 
 // Enable edit mode for stock and repeats
@@ -904,6 +1076,85 @@ async function assignMedicationToUser(medId) {
         console.error('Error assigning medication:', error);
         await customAlert(`Error: ${error.message}`);
     }
+}
+
+// ==================== SHARE/EXPORT FUNCTIONALITY ====================
+
+// Show share modal
+function showShareModal() {
+    // Build order summary text
+    const activeMedications = currentMedications.filter(m => m.Active !== false && m.calcStockStatus !== 'good');
+    
+    if (activeMedications.length === 0) {
+        customAlert('No medications need to be purchased at this time.');
+        return;
+    }
+    
+    let summaryHTML = '<h6>Medications to Purchase:</h6><ul class="list-unstyled">';
+    let summaryText = 'Medication Order:\n\n';
+    
+    activeMedications.forEach(med => {
+        const itemText = `${med.MedicationName} (${med.CommonName}) - ${med.MedicationStrength}`;
+        summaryHTML += `<li><i class="bi bi-capsule"></i> ${itemText}</li>`;
+        summaryText += `• ${itemText}\n`;
+    });
+    
+    summaryHTML += '</ul>';
+    summaryText += `\nTotal Items: ${activeMedications.length}`;
+    
+    document.getElementById('shareOrderSummary').innerHTML = summaryHTML;
+    
+    // Store summary text for sharing
+    window.currentOrderSummary = summaryText;
+    
+    new bootstrap.Modal(document.getElementById('shareModal')).show();
+}
+
+// Share via email
+function shareViaEmail() {
+    const subject = encodeURIComponent('Medication Order');
+    const body = encodeURIComponent(window.currentOrderSummary);
+    window.location.href = `mailto:?subject=${subject}&body=${body}`;
+}
+
+// Share via SMS
+function shareViaSMS() {
+    const body = encodeURIComponent(window.currentOrderSummary);
+    // This works on mobile devices
+    window.location.href = `sms:?body=${body}`;
+}
+
+// Copy to clipboard
+async function copyToClipboard() {
+    try {
+        await navigator.clipboard.writeText(window.currentOrderSummary);
+        await customAlert('Order copied to clipboard!');
+    } catch (error) {
+        console.error('Failed to copy:', error);
+        await customAlert('Failed to copy to clipboard. Please try again.');
+    }
+}
+
+// Generate QR Code
+function generateQRCode() {
+    const container = document.getElementById('qrCodeContainer');
+    const canvas = document.getElementById('qrCodeCanvas');
+    
+    // Clear previous QR code
+    canvas.innerHTML = '';
+    
+    // Generate new QR code
+    const qr = new QRCode(canvas, {
+        text: window.currentOrderSummary,
+        width: 256,
+        height: 256,
+        colorDark: '#000000',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.H
+    });
+    
+    // Show container
+    container.style.display = 'block';
 }
 
 
