@@ -219,9 +219,15 @@ async function loadUserMedications() {
         displayMedications();
         updateSummary();
         
-        // Load forecast and switch to forecast tab
-        await loadForecast();
-        switchTab('forecast');
+        // If no medications, show option to assign
+        if (currentMedications.length === 0) {
+            switchTab('manage');
+            await customAlert('This user has no medications assigned yet. Go to the Manage tab to assign medications.');
+        } else {
+            // Load forecast and switch to forecast tab
+            await loadForecast();
+            switchTab('forecast');
+        }
         
     } catch (error) {
         console.error('Error loading medications:', error);
@@ -728,6 +734,9 @@ function createManageMedicationCard(med) {
                     </div>
                 </div>
                 <div class="btn-group-vertical btn-group-sm">
+                    <button class="btn btn-outline-success" onclick="assignMedicationToUser(${med.MedIDs})" title="Assign to User">
+                        <i class="bi bi-person-plus"></i>
+                    </button>
                     <button class="btn btn-outline-primary" onclick="editMedication(${med.MedIDs})">
                         <i class="bi bi-pencil"></i>
                     </button>
@@ -848,6 +857,55 @@ async function saveStockRepeatsEdit() {
         await customAlert('Failed to update. Please try again.');
     }
 }
+
+// Assign medication to user
+async function assignMedicationToUser(medId) {
+    if (!currentUserId) {
+        await customAlert('Please select a user first');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_URL}/medications/${medId}`);
+        const med = await response.json();
+        
+        // Prompt for initial details
+        const initialStock = prompt(`How many ${med.MedicationName} do they currently have?`, '0');
+        if (initialStock === null) return;
+        
+        const repeats = prompt('How many prescription repeats remaining?', '0');
+        if (repeats === null) return;
+        
+        const dosageDaily = prompt('How many tablets per day?', '1');
+        if (dosageDaily === null) return;
+        
+        // Assign medication
+        const assignResponse = await fetch(`${API_URL}/user-med-chart/assign`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                user_id: parseInt(currentUserId),
+                med_id: medId,
+                initial_stock: parseInt(initialStock),
+                repeats: parseInt(repeats),
+                dosage_daily: parseFloat(dosageDaily)
+            })
+        });
+        
+        if (!assignResponse.ok) {
+            const error = await assignResponse.json();
+            throw new Error(error.description || 'Failed to assign medication');
+        }
+        
+        await customAlert(`${med.MedicationName} assigned successfully!`);
+        await loadUserMedications();
+        
+    } catch (error) {
+        console.error('Error assigning medication:', error);
+        await customAlert(`Error: ${error.message}`);
+    }
+}
+
 
 // ==================== CUSTOM ALERT/CONFIRM ====================
 
