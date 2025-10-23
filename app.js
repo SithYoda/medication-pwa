@@ -1048,8 +1048,14 @@ async function assignMedicationToUser(medId) {
         const repeats = prompt('How many prescription repeats remaining?', '0');
         if (repeats === null) return;
         
-        const dosageDaily = prompt('How many tablets per day?', '1');
-        if (dosageDaily === null) return;
+        const dosageAM = prompt('How many tablets in the MORNING?', '0');
+        if (dosageAM === null) return;
+        
+        const dosagePM = prompt('How many tablets in the EVENING?', '0');
+        if (dosagePM === null) return;
+        
+        const dosageOncePerWeek = prompt('How many tablets ONCE PER WEEK? (0 if daily)', '0');
+        if (dosageOncePerWeek === null) return;
         
         // Assign medication
         const assignResponse = await fetch(`${API_URL}/user-med-chart/assign`, {
@@ -1060,7 +1066,9 @@ async function assignMedicationToUser(medId) {
                 med_id: medId,
                 initial_stock: parseInt(initialStock),
                 repeats: parseInt(repeats),
-                dosage_daily: parseFloat(dosageDaily)
+                dosage_am: parseFloat(dosageAM),
+                dosage_pm: parseFloat(dosagePM),
+                dosage_once_per_week: parseFloat(dosageOncePerWeek)
             })
         });
         
@@ -1077,6 +1085,7 @@ async function assignMedicationToUser(medId) {
         await customAlert(`Error: ${error.message}`);
     }
 }
+
 
 // ==================== SHARE/EXPORT FUNCTIONALITY ====================
 
