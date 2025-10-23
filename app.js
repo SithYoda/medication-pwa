@@ -180,13 +180,6 @@ function setupEventListeners() {
     document.getElementById('confirmAssignBtn').addEventListener('click', confirmAssignMedication);
 }
 
-// Register service worker
-if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('service-worker.js')
-        .then(reg => console.log('Service worker registered'))
-        .catch(err => console.error('Service worker registration failed:', err));
-}
-
 // Save settings
 function saveSettings() {
     const apiUrl = document.getElementById('apiUrlInput').value.trim();
