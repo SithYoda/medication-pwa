@@ -175,6 +175,9 @@ function setupEventListeners() {
     document.getElementById('shareSMSBtn').addEventListener('click', shareViaSMS);
     document.getElementById('copyToClipboardBtn').addEventListener('click', copyToClipboard);
     document.getElementById('showQRCodeBtn').addEventListener('click', generateQRCode);
+
+    // At the end of setupEventListeners function, add:
+    document.getElementById('confirmAssignBtn').addEventListener('click', confirmAssignMedication);
 }
 
 // Save settings
@@ -319,8 +322,15 @@ function showMedicationDetail(med) {
     document.getElementById('modalStrength').textContent = med.MedicationStrength;
     document.getElementById('modalStock').value = med.Stocktake;
     document.getElementById('modalRepeats').value = med.Repeats;
+    document.getElementById('modalDosageAM').value = med.DosageAM || 0;
+    document.getElementById('modalDosagePM').value = med.DosagePM || 0;
+    document.getElementById('modalDosageWeekly').value = med.DosageOncePerWeek || 0;
     document.getElementById('modalDaysRemaining').value = `${med.calcDaysRemaining} days`;
     document.getElementById('modalRunOutDate').value = med.calcRunOutDate ? formatDate(med.calcRunOutDate) : 'N/A';
+    
+    // Calculate and show daily total
+    const dailyTotal = med.calcDosageDaily || 0;
+    document.getElementById('modalDosageTotal').textContent = dailyTotal.toFixed(1);
     
     // Reset to normal mode
     exitEditMode();
@@ -339,7 +349,7 @@ function showMedicationDetail(med) {
         repeatsWarning.style.display = 'none';
     }
     
-    // Setup edit mode button listeners (need to do this each time modal opens)
+    // Setup edit mode button listeners
     document.getElementById('editModeBtn').onclick = enterEditMode;
     document.getElementById('saveEditsBtn').onclick = saveStockRepeatsEdit;
     document.getElementById('cancelEditBtn').onclick = exitEditMode;
@@ -971,12 +981,20 @@ async function togglePharmacyActive(pharmacyId, currentStatus) {
 
 // ==================== EDIT MODE FOR STOCK/REPEATS ====================
 
-// Enable edit mode for stock and repeats
+// Enable edit mode for stock, repeats, and dosages
 function enterEditMode() {
     document.getElementById('modalStock').removeAttribute('readonly');
     document.getElementById('modalRepeats').removeAttribute('readonly');
+    document.getElementById('modalDosageAM').removeAttribute('readonly');
+    document.getElementById('modalDosagePM').removeAttribute('readonly');
+    document.getElementById('modalDosageWeekly').removeAttribute('readonly');
+    
     document.getElementById('modalStock').classList.add('border-primary');
     document.getElementById('modalRepeats').classList.add('border-primary');
+    document.getElementById('modalDosageAM').classList.add('border-primary');
+    document.getElementById('modalDosagePM').classList.add('border-primary');
+    document.getElementById('modalDosageWeekly').classList.add('border-primary');
+    
     document.getElementById('normalModeButtons').style.display = 'none';
     document.getElementById('editModeButtons').style.display = 'block';
 }
@@ -985,25 +1003,41 @@ function enterEditMode() {
 function exitEditMode() {
     document.getElementById('modalStock').setAttribute('readonly', true);
     document.getElementById('modalRepeats').setAttribute('readonly', true);
+    document.getElementById('modalDosageAM').setAttribute('readonly', true);
+    document.getElementById('modalDosagePM').setAttribute('readonly', true);
+    document.getElementById('modalDosageWeekly').setAttribute('readonly', true);
+    
     document.getElementById('modalStock').classList.remove('border-primary');
     document.getElementById('modalRepeats').classList.remove('border-primary');
+    document.getElementById('modalDosageAM').classList.remove('border-primary');
+    document.getElementById('modalDosagePM').classList.remove('border-primary');
+    document.getElementById('modalDosageWeekly').classList.remove('border-primary');
+    
     document.getElementById('normalModeButtons').style.display = 'block';
     document.getElementById('editModeButtons').style.display = 'none';
 }
 
-// Save edited stock and repeats
+// Save edited stock, repeats, and dosages
 async function saveStockRepeatsEdit() {
     if (!selectedMedication) return;
     
     const newStock = parseInt(document.getElementById('modalStock').value);
     const newRepeats = parseInt(document.getElementById('modalRepeats').value);
+    const newDosageAM = parseFloat(document.getElementById('modalDosageAM').value);
+    const newDosagePM = parseFloat(document.getElementById('modalDosagePM').value);
+    const newDosageWeekly = parseFloat(document.getElementById('modalDosageWeekly').value);
     
     if (newStock < 0 || newRepeats < 0) {
         await customAlert('Stock and repeats cannot be negative!');
         return;
     }
     
-    const proceed = await customConfirm(`Update stock to ${newStock} and repeats to ${newRepeats}?`);
+    if (newDosageAM === 0 && newDosagePM === 0 && newDosageWeekly === 0) {
+        await customAlert('At least one dosage value must be greater than 0!');
+        return;
+    }
+    
+    const proceed = await customConfirm(`Update stock to ${newStock}, repeats to ${newRepeats}, and dosages (AM: ${newDosageAM}, PM: ${newDosagePM}, Weekly: ${newDosageWeekly})?`);
     if (!proceed) return;
     
     try {
@@ -1012,7 +1046,10 @@ async function saveStockRepeatsEdit() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
                 stock: newStock,
-                repeats: newRepeats
+                repeats: newRepeats,
+                dosage_am: newDosageAM,
+                dosage_pm: newDosagePM,
+                dosage_once_per_week: newDosageWeekly
             })
         });
         
@@ -1022,10 +1059,10 @@ async function saveStockRepeatsEdit() {
         
         bootstrap.Modal.getInstance(document.getElementById('medDetailModal')).hide();
         await loadUserMedications();
-        await customAlert('Stock and repeats updated successfully!');
+        await customAlert('Updated successfully!');
         
     } catch (error) {
-        console.error('Error updating stock/repeats:', error);
+        console.error('Error updating:', error);
         await customAlert('Failed to update. Please try again.');
     }
 }
@@ -1041,34 +1078,58 @@ async function assignMedicationToUser(medId) {
         const response = await fetch(`${API_URL}/medications/${medId}`);
         const med = await response.json();
         
-        // Prompt for initial details
-        const initialStock = prompt(`How many ${med.MedicationName} do they currently have?`, '0');
-        if (initialStock === null) return;
+        // Get current user name
+        const userSelect = document.getElementById('userSelect');
+        const userName = userSelect.options[userSelect.selectedIndex].text;
         
-        const repeats = prompt('How many prescription repeats remaining?', '0');
-        if (repeats === null) return;
+        // Populate modal
+        document.getElementById('assignToUserName').textContent = userName;
+        document.getElementById('assignMedName').textContent = `${med.MedicationName} (${med.CommonName}) - ${med.MedicationStrength}`;
+        document.getElementById('assignMedId').value = medId;
         
-        const dosageAM = prompt('How many tablets in the MORNING?', '0');
-        if (dosageAM === null) return;
+        // Reset form
+        document.getElementById('assignInitialStock').value = '0';
+        document.getElementById('assignRepeats').value = '0';
+        document.getElementById('assignDosageAM').value = '0';
+        document.getElementById('assignDosagePM').value = '0';
+        document.getElementById('assignDosageWeekly').value = '0';
         
-        const dosagePM = prompt('How many tablets in the EVENING?', '0');
-        if (dosagePM === null) return;
+        // Show modal
+        new bootstrap.Modal(document.getElementById('assignMedicationModal')).show();
         
-        const dosageOncePerWeek = prompt('How many tablets ONCE PER WEEK? (0 if daily)', '0');
-        if (dosageOncePerWeek === null) return;
-        
-        // Assign medication
+    } catch (error) {
+        console.error('Error loading medication:', error);
+        await customAlert(`Error: ${error.message}`);
+    }
+}
+
+// Confirm assign medication
+async function confirmAssignMedication() {
+    const medId = parseInt(document.getElementById('assignMedId').value);
+    const initialStock = parseInt(document.getElementById('assignInitialStock').value);
+    const repeats = parseInt(document.getElementById('assignRepeats').value);
+    const dosageAM = parseFloat(document.getElementById('assignDosageAM').value);
+    const dosagePM = parseFloat(document.getElementById('assignDosagePM').value);
+    const dosageWeekly = parseFloat(document.getElementById('assignDosageWeekly').value);
+    
+    // Validation
+    if (dosageAM === 0 && dosagePM === 0 && dosageWeekly === 0) {
+        await customAlert('Please enter at least one dosage value greater than 0');
+        return;
+    }
+    
+    try {
         const assignResponse = await fetch(`${API_URL}/user-med-chart/assign`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 user_id: parseInt(currentUserId),
                 med_id: medId,
-                initial_stock: parseInt(initialStock),
-                repeats: parseInt(repeats),
-                dosage_am: parseFloat(dosageAM),
-                dosage_pm: parseFloat(dosagePM),
-                dosage_once_per_week: parseFloat(dosageOncePerWeek)
+                initial_stock: initialStock,
+                repeats: repeats,
+                dosage_am: dosageAM,
+                dosage_pm: dosagePM,
+                dosage_once_per_week: dosageWeekly
             })
         });
         
@@ -1077,7 +1138,8 @@ async function assignMedicationToUser(medId) {
             throw new Error(error.description || 'Failed to assign medication');
         }
         
-        await customAlert(`${med.MedicationName} assigned successfully!`);
+        bootstrap.Modal.getInstance(document.getElementById('assignMedicationModal')).hide();
+        await customAlert('Medication assigned successfully!');
         await loadUserMedications();
         
     } catch (error) {
