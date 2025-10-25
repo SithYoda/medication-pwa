@@ -83,6 +83,9 @@
             <li class="nav-item">
                 <a class="nav-link active" href="#" onclick="showTab('medicationsSection')">Medications</a>
             </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#" onclick="showTab('forecastSection')">Forecast</a>
+            </li>
         </ul>
 
         <!-- Medications Section -->
@@ -110,6 +113,52 @@
                         </table>
                     </div>
                     <p class="text-muted"><small>Click on a medication row to edit</small></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Forecast Section -->
+        <div id="forecastSection" class="content-section" style="display: none;">
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5>Forecast Settings</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label for="payFrequency" class="form-label">Pay Frequency</label>
+                            <select class="form-select" id="payFrequency">
+                                <option value="7">Weekly</option>
+                                <option value="14">Fortnightly</option>
+                                <option value="30" selected>Monthly</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="nextPayDate" class="form-label">Next Pay Date</label>
+                            <input type="date" class="form-control" id="nextPayDate" />
+                        </div>
+                        <div class="col-md-4">
+                            <label for="forecastPeriod" class="form-label">Forecast Period</label>
+                            <select class="form-select" id="forecastPeriod">
+                                <option value="1">1 Month</option>
+                                <option value="3">3 Months</option>
+                                <option value="6" selected>6 Months</option>
+                                <option value="12">12 Months</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" onclick="generateForecast()">Generate Forecast</button>
+                </div>
+            </div>
+
+            <div id="forecastResults" style="display: none;">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Forecast Results</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="forecastContent"></div>
+                    </div>
                 </div>
             </div>
         </div>

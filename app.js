@@ -8,6 +8,7 @@ let selectedMedication = null;
 // Initialize app - skip login, go straight to main app
 document.addEventListener('DOMContentLoaded', function() {
     setupEventListeners();
+    initializePayDate();
     showMainApp();
 });
 
@@ -201,4 +202,141 @@ function saveSettings() {
         localStorage.setItem('apiUrl', apiUrl);
         alert('Settings saved');
     }
+}
+
+// Tab switching
+function showTab(tabName) {
+    document.querySelectorAll('.content-section').forEach(s => s.style.display = 'none');
+    document.getElementById(tabName).style.display = 'block';
+    
+    // Update active tab
+    document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
+    event.target.classList.add('active');
+}
+
+// Initialize next pay date to 15th of next month
+function initializePayDate() {
+    const today = new Date();
+    let nextPay = new Date(today.getFullYear(), today.getMonth() + 1, 15);
+    document.getElementById('nextPayDate').value = nextPay.toISOString().split('T')[0];
+}
+
+// Generate forecast
+async function generateForecast() {
+    if (!currentUserId) {
+        alert('Please load a user first');
+        return;
+    }
+    
+    const payFrequency = parseInt(document.getElementById('payFrequency').value);
+    const nextPayDate = new Date(document.getElementById('nextPayDate').value);
+    const forecastMonths = parseInt(document.getElementById('forecastPeriod').value);
+    
+    if (!nextPayDate || isNaN(nextPayDate.getTime())) {
+        alert('Please select a valid next pay date');
+        return;
+    }
+    
+    try {
+        // Calculate pay periods
+        const payPeriods = [];
+        let currentDate = new Date(nextPayDate);
+        
+        for (let i = 0; i < forecastMonths * 30 / payFrequency; i++) {
+            const periodStart = new Date(currentDate);
+            const periodEnd = new Date(currentDate);
+            periodEnd.setDate(periodEnd.getDate() + payFrequency);
+            
+            payPeriods.push({
+                start: periodStart,
+                end: periodEnd,
+                medications: []
+            });
+            
+            currentDate = new Date(periodEnd);
+        }
+        
+        // Get medications that need to be purchased in each period
+        for (const period of payPeriods) {
+            period.medications = currentMedications.filter(med => {
+                if (!med.calcRunOutDate) return false;
+                const runOutDate = new Date(med.calcRunOutDate);
+                return runOutDate >= period.start && runOutDate <= period.end;
+            }).map(med => ({
+                name: med.MedicationName,
+                quantity: med.medication ? med.medication.QtyRepeat : med.PurchaseQuantity || 1,
+                price: med.Price || 0
+            }));
+        }
+        
+        // Display forecast
+        displayForecast(payPeriods);
+        
+    } catch (error) {
+        console.error('Error generating forecast:', error);
+        alert('Error generating forecast: ' + error.message);
+    }
+}
+
+// Display forecast results
+function displayForecast(payPeriods) {
+    const forecastContent = document.getElementById('forecastContent');
+    let html = '';
+    let totalCost = 0;
+    
+    payPeriods.forEach((period, index) => {
+        const periodCost = period.medications.reduce((sum, med) => sum + (med.price || 0), 0);
+        totalCost += periodCost;
+        
+        const startDate = period.start.toLocaleDateString();
+        const endDate = period.end.toLocaleDateString();
+        
+        html += `
+            <div class="card mb-3">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0">Period ${index + 1}: ${startDate} - ${endDate}</h6>
+                </div>
+                <div class="card-body">
+                    ${period.medications.length === 0 ? 
+                        '<p class="text-muted">No medications to purchase</p>' :
+                        `<table class="table table-sm mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Medication</th>
+                                    <th>Quantity</th>
+                                    <th class="text-end">Price</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${period.medications.map(med => `
+                                    <tr>
+                                        <td>${med.name}</td>
+                                        <td>${med.quantity}</td>
+                                        <td class="text-end">$${(med.price * med.quantity).toFixed(2)}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <th colspan="2">Period Total:</th>
+                                    <th class="text-end">$${periodCost.toFixed(2)}</th>
+                                </tr>
+                            </tfoot>
+                        </table>`
+                    }
+                </div>
+            </div>
+        `;
+    });
+    
+    html += `
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <h6>Grand Total: $${totalCost.toFixed(2)}</h6>
+            </div>
+        </div>
+    `;
+    
+    forecastContent.innerHTML = html;
+    document.getElementById('forecastResults').style.display = 'block';
 }
