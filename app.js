@@ -180,25 +180,12 @@ async function saveMedicationChanges() {
             throw new Error('Failed to save medication changes');
         }
         
-        // Update local data
-        selectedMedication.Stocktake = updateData.Stocktake;
-        selectedMedication.DosageAM = updateData.DosageAM;
-        selectedMedication.DosagePM = updateData.DosagePM;
-        selectedMedication.DosageOncePerWeek = updateData.DosageOncePerWeek;
-        selectedMedication.Repeats = updateData.Repeats;
-        selectedMedication.ReorderLevel = updateData.ReorderLevel;
-        
-        // Update in currentMedications array
-        const index = currentMedications.findIndex(m => m.MedIDs === selectedMedication.MedIDs);
-        if (index !== -1) {
-            currentMedications[index] = selectedMedication;
-        }
-        
         // Close modal
         bootstrap.Modal.getInstance(document.getElementById('medicationModal')).hide();
         
-        // Refresh display
-        displayMedications();
+        // Refresh medications from server
+        await loadUserMedications();
+        
         alert('Medication updated successfully');
         
     } catch (error) {
