@@ -228,7 +228,14 @@ async function generateForecast() {
         return;
     }
     
-    console.log('Medications available:', currentMedications);
+    console.log('=== FORECAST DEBUG ===');
+    console.log('Total medications:', currentMedications.length);
+    
+    // Log first medication to see structure
+    if (currentMedications.length > 0) {
+        console.log('First medication:', currentMedications[0]);
+        console.log('calcRunOutDate field:', currentMedications[0].calcRunOutDate);
+    }
     
     const payFrequency = parseInt(document.getElementById('payFrequency').value);
     const nextPayDate = new Date(document.getElementById('nextPayDate').value);
@@ -263,19 +270,27 @@ async function generateForecast() {
             console.log(`Period ${i}: ${periodStart.toLocaleDateString()} - ${periodEnd.toLocaleDateString()}`);
             
             currentDate = new Date(periodEnd);
-            currentDate.setDate(currentDate.getDate() + 1); // Move to next day after period ends
+            currentDate.setDate(currentDate.getDate() + 1);
         }
         
         // Get medications that need to be purchased in each period
+        console.log('Starting medication matching...');
+        let matchedCount = 0;
+        
         for (const period of payPeriods) {
             const medicationsInPeriod = [];
             
             for (const med of currentMedications) {
+                console.log(`Checking: ${med.MedicationName}`);
+                console.log('  - calcRunOutDate:', med.calcRunOutDate);
+                console.log('  - Price:', med.Price);
+                console.log('  - PurchaseQuantity:', med.PurchaseQuantity);
+                
                 // Check if medication has a run-out date
                 if (med.calcRunOutDate) {
                     const runOutDate = new Date(med.calcRunOutDate);
                     
-                    console.log(`Med: ${med.MedicationName}, RunOut: ${runOutDate.toLocaleDateString()}, Period: ${period.start.toLocaleDateString()} - ${period.end.toLocaleDateString()}`);
+                    console.log(`  - RunOut: ${runOutDate.toLocaleDateString()}, Period: ${period.start.toLocaleDateString()} - ${period.end.toLocaleDateString()}`);
                     
                     // If run out date falls within this pay period
                     if (runOutDate >= period.start && runOutDate <= period.end) {
@@ -287,13 +302,19 @@ async function generateForecast() {
                             runOutDate: med.calcRunOutDate
                         });
                         
-                        console.log(`  -> MATCHED for this period`);
+                        matchedCount++;
+                        console.log(`  -> MATCHED for period!`);
                     }
+                } else {
+                    console.log('  - NO calcRunOutDate field');
                 }
             }
             
             period.medications = medicationsInPeriod;
         }
+        
+        console.log('Total matched medications:', matchedCount);
+        console.log('Pay periods:', payPeriods);
         
         // Display forecast
         displayForecast(payPeriods);
