@@ -100,13 +100,39 @@ function displayMedications() {
     currentMedications.forEach(med => {
         const row = tbody.insertRow();
         row.style.cursor = 'pointer';
+        
+        // Determine stock status color and text
+        let stockStatusBadge = 'bg-success';
+        let stockStatusText = 'Good';
+        
+        if (med.StockStatus === 'critical') {
+            stockStatusBadge = 'bg-danger';
+            stockStatusText = 'Low';
+        } else if (med.StockStatus === 'low') {
+            stockStatusBadge = 'bg-warning text-dark';
+            stockStatusText = 'Medium';
+        }
+        
+        // Determine repeats status color and text
+        let repeatsStatusBadge = 'bg-success';
+        let repeatsStatusText = 'Good';
+        
+        if (med.Repeats === 0) {
+            repeatsStatusBadge = 'bg-danger';
+            repeatsStatusText = 'None';
+        } else if (med.Repeats <= 2) {
+            repeatsStatusBadge = 'bg-warning text-dark';
+            repeatsStatusText = 'Low';
+        }
+        
         row.innerHTML = `
             <td>${med.MedicationName}</td>
             <td>${med.CommonName}</td>
             <td>${med.MedicationStrength}</td>
             <td>${med.Stocktake}</td>
             <td>${med.DaysRemaining || 'N/A'}</td>
-            <td><span class="badge bg-${med.StockStatus === 'critical' ? 'danger' : med.StockStatus === 'low' ? 'warning' : 'success'}">${med.StockStatus}</span></td>
+            <td><span class="badge ${stockStatusBadge}">${stockStatusText}</span></td>
+            <td><span class="badge ${repeatsStatusBadge}">${repeatsStatusText}</span></td>
         `;
         row.addEventListener('click', () => openMedicationModal(med));
     });
