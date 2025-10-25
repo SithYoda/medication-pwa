@@ -78,7 +78,7 @@ async function loadUserMedications() {
         document.getElementById('summarySection').style.display = 'flex';
         document.getElementById('mainTabs').style.display = 'block';
         document.querySelectorAll('.content-section').forEach(s => s.style.display = 'none');
-        document.getElementById('medicationsSection').style.display = 'block';
+        document.getElementById('forecastSection').style.display = 'block';
         
         // Update summary
         document.getElementById('totalMeds').textContent = data.medications.length;
@@ -228,6 +228,8 @@ async function generateForecast() {
         return;
     }
     
+    console.log('Medications available:', currentMedications);
+    
     const payFrequency = parseInt(document.getElementById('payFrequency').value);
     const nextPayDate = new Date(document.getElementById('nextPayDate').value);
     const forecastMonths = parseInt(document.getElementById('forecastPeriod').value);
@@ -242,7 +244,12 @@ async function generateForecast() {
         const payPeriods = [];
         let currentDate = new Date(nextPayDate);
         
-        for (let i = 0; i < forecastMonths * 30 / payFrequency; i++) {
+        // Calculate number of periods
+        const numPeriods = Math.ceil((forecastMonths * 30) / payFrequency);
+        
+        console.log('Forecast months:', forecastMonths, 'Pay frequency days:', payFrequency, 'Num periods:', numPeriods);
+        
+        for (let i = 0; i < numPeriods; i++) {
             const periodStart = new Date(currentDate);
             const periodEnd = new Date(currentDate);
             periodEnd.setDate(periodEnd.getDate() + payFrequency);
@@ -253,20 +260,39 @@ async function generateForecast() {
                 medications: []
             });
             
+            console.log(`Period ${i}: ${periodStart.toLocaleDateString()} - ${periodEnd.toLocaleDateString()}`);
+            
             currentDate = new Date(periodEnd);
+            currentDate.setDate(currentDate.getDate() + 1); // Move to next day after period ends
         }
         
         // Get medications that need to be purchased in each period
         for (const period of payPeriods) {
-            period.medications = currentMedications.filter(med => {
-                if (!med.calcRunOutDate) return false;
-                const runOutDate = new Date(med.calcRunOutDate);
-                return runOutDate >= period.start && runOutDate <= period.end;
-            }).map(med => ({
-                name: med.MedicationName,
-                quantity: med.medication ? med.medication.QtyRepeat : med.PurchaseQuantity || 1,
-                price: med.Price || 0
-            }));
+            const medicationsInPeriod = [];
+            
+            for (const med of currentMedications) {
+                // Check if medication has a run-out date
+                if (med.calcRunOutDate) {
+                    const runOutDate = new Date(med.calcRunOutDate);
+                    
+                    console.log(`Med: ${med.MedicationName}, RunOut: ${runOutDate.toLocaleDateString()}, Period: ${period.start.toLocaleDateString()} - ${period.end.toLocaleDateString()}`);
+                    
+                    // If run out date falls within this pay period
+                    if (runOutDate >= period.start && runOutDate <= period.end) {
+                        medicationsInPeriod.push({
+                            name: med.MedicationName,
+                            commonName: med.CommonName,
+                            quantity: med.PurchaseQuantity || 1,
+                            price: med.Price || 0,
+                            runOutDate: med.calcRunOutDate
+                        });
+                        
+                        console.log(`  -> MATCHED for this period`);
+                    }
+                }
+            }
+            
+            period.medications = medicationsInPeriod;
         }
         
         // Display forecast
@@ -283,10 +309,12 @@ function displayForecast(payPeriods) {
     const forecastContent = document.getElementById('forecastContent');
     let html = '';
     let totalCost = 0;
+    let totalMeds = 0;
     
     payPeriods.forEach((period, index) => {
-        const periodCost = period.medications.reduce((sum, med) => sum + (med.price || 0), 0);
+        const periodCost = period.medications.reduce((sum, med) => sum + (med.price * med.quantity), 0);
         totalCost += periodCost;
+        totalMeds += period.medications.length;
         
         const startDate = period.start.toLocaleDateString();
         const endDate = period.end.toLocaleDateString();
@@ -304,7 +332,8 @@ function displayForecast(payPeriods) {
                                 <tr>
                                     <th>Medication</th>
                                     <th>Quantity</th>
-                                    <th class="text-end">Price</th>
+                                    <th>Unit Price</th>
+                                    <th class="text-end">Total</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -312,13 +341,14 @@ function displayForecast(payPeriods) {
                                     <tr>
                                         <td>${med.name}</td>
                                         <td>${med.quantity}</td>
+                                        <td>$${(med.price).toFixed(2)}</td>
                                         <td class="text-end">$${(med.price * med.quantity).toFixed(2)}</td>
                                     </tr>
                                 `).join('')}
                             </tbody>
                             <tfoot>
-                                <tr>
-                                    <th colspan="2">Period Total:</th>
+                                <tr class="table-active">
+                                    <th colspan="3">Period Total:</th>
                                     <th class="text-end">$${periodCost.toFixed(2)}</th>
                                 </tr>
                             </tfoot>
@@ -332,7 +362,8 @@ function displayForecast(payPeriods) {
     html += `
         <div class="card bg-primary text-white">
             <div class="card-body">
-                <h6>Grand Total: $${totalCost.toFixed(2)}</h6>
+                <h6>Total Medications: ${totalMeds}</h6>
+                <h5 class="mb-0">Grand Total: $${totalCost.toFixed(2)}</h5>
             </div>
         </div>
     `;
