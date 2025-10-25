@@ -108,6 +108,7 @@
                             </tbody>
                         </table>
                     </div>
+                    <p class="text-muted"><small>Click on a medication row to edit</small></p>
                 </div>
             </div>
         </div>
@@ -131,6 +132,71 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                     <button type="button" class="btn btn-primary" id="saveSettingsBtn">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Medication Edit Modal -->
+    <div class="modal fade" id="medicationModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="medModalTitle">Edit Medication</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="medName" class="form-label">Medication Name</label>
+                            <input type="text" class="form-control" id="medName" disabled />
+                        </div>
+                        <div class="col-md-6">
+                            <label for="medCommonName" class="form-label">Common Name</label>
+                            <input type="text" class="form-control" id="medCommonName" disabled />
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="medStrength" class="form-label">Strength</label>
+                            <input type="text" class="form-control" id="medStrength" disabled />
+                        </div>
+                        <div class="col-md-6">
+                            <label for="medStocktake" class="form-label">Stock on Hand</label>
+                            <input type="number" class="form-control" id="medStocktake" min="0" />
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label for="medDosageAM" class="form-label">Dosage AM</label>
+                            <input type="number" class="form-control" id="medDosageAM" min="0" step="0.5" />
+                        </div>
+                        <div class="col-md-4">
+                            <label for="medDosagePM" class="form-label">Dosage PM</label>
+                            <input type="number" class="form-control" id="medDosagePM" min="0" step="0.5" />
+                        </div>
+                        <div class="col-md-4">
+                            <label for="medDosageWeekly" class="form-label">Once Per Week</label>
+                            <input type="number" class="form-control" id="medDosageWeekly" min="0" step="0.5" />
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="medRepeats" class="form-label">Repeats</label>
+                            <input type="number" class="form-control" id="medRepeats" min="0" />
+                        </div>
+                        <div class="col-md-6">
+                            <label for="medReorderLevel" class="form-label">Reorder Level</label>
+                            <input type="number" class="form-control" id="medReorderLevel" min="0" />
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" onclick="saveMedicationChanges()">Save Changes</button>
                 </div>
             </div>
         </div>

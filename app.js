@@ -99,6 +99,7 @@ function displayMedications() {
     
     currentMedications.forEach(med => {
         const row = tbody.insertRow();
+        row.style.cursor = 'pointer';
         row.innerHTML = `
             <td>${med.MedicationName}</td>
             <td>${med.CommonName}</td>
@@ -107,7 +108,77 @@ function displayMedications() {
             <td>${med.DaysRemaining || 'N/A'}</td>
             <td><span class="badge bg-${med.StockStatus === 'critical' ? 'danger' : med.StockStatus === 'low' ? 'warning' : 'success'}">${med.StockStatus}</span></td>
         `;
+        row.addEventListener('click', () => openMedicationModal(med));
     });
+}
+
+// Open medication edit modal
+function openMedicationModal(med) {
+    selectedMedication = med;
+    
+    document.getElementById('medModalTitle').textContent = med.MedicationName;
+    document.getElementById('medName').value = med.MedicationName;
+    document.getElementById('medCommonName').value = med.CommonName;
+    document.getElementById('medStrength').value = med.MedicationStrength;
+    document.getElementById('medStocktake').value = med.Stocktake || 0;
+    document.getElementById('medDosageAM').value = med.DosageAM || 0;
+    document.getElementById('medDosagePM').value = med.DosagePM || 0;
+    document.getElementById('medDosageWeekly').value = med.DosageOncePerWeek || 0;
+    document.getElementById('medRepeats').value = med.Repeats || 0;
+    document.getElementById('medReorderLevel').value = med.ReorderLevel || 0;
+    
+    new bootstrap.Modal(document.getElementById('medicationModal')).show();
+}
+
+// Save medication changes
+async function saveMedicationChanges() {
+    if (!selectedMedication || !currentUserId) return;
+    
+    try {
+        const updateData = {
+            Stocktake: parseInt(document.getElementById('medStocktake').value) || 0,
+            DosageAM: parseInt(document.getElementById('medDosageAM').value) || 0,
+            DosagePM: parseInt(document.getElementById('medDosagePM').value) || 0,
+            DosageOncePerWeek: parseInt(document.getElementById('medDosageWeekly').value) || 0,
+            Repeats: parseInt(document.getElementById('medRepeats').value) || 0,
+            ReorderLevel: parseInt(document.getElementById('medReorderLevel').value) || 0
+        };
+        
+        const response = await fetch(`${API_URL}/user-med-chart/user/${currentUserId}/medication/${selectedMedication.MedIDs}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updateData)
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to save medication changes');
+        }
+        
+        // Update local data
+        selectedMedication.Stocktake = updateData.Stocktake;
+        selectedMedication.DosageAM = updateData.DosageAM;
+        selectedMedication.DosagePM = updateData.DosagePM;
+        selectedMedication.DosageOncePerWeek = updateData.DosageOncePerWeek;
+        selectedMedication.Repeats = updateData.Repeats;
+        selectedMedication.ReorderLevel = updateData.ReorderLevel;
+        
+        // Update in currentMedications array
+        const index = currentMedications.findIndex(m => m.MedIDs === selectedMedication.MedIDs);
+        if (index !== -1) {
+            currentMedications[index] = selectedMedication;
+        }
+        
+        // Close modal
+        bootstrap.Modal.getInstance(document.getElementById('medicationModal')).hide();
+        
+        // Refresh display
+        displayMedications();
+        alert('Medication updated successfully');
+        
+    } catch (error) {
+        console.error('Error saving medication:', error);
+        alert('Error saving medication: ' + error.message);
+    }
 }
 
 function saveSettings() {
