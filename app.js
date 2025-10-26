@@ -303,17 +303,35 @@ function editMedicationMaster(medId, med) {
     document.getElementById('editMedQtyRepeat').value = med.QtyRepeat;
     document.getElementById('editMedPrice').value = med.Price || 0;
     
-    // Update archive button text based on status
-    const archiveBtn = document.getElementById('editArchiveBtn');
-    if (med.Active === 1) {
-        archiveBtn.textContent = 'Archive';
-        archiveBtn.className = 'btn btn-danger';  // Red = Archive (Danger)
-    } else {
-        archiveBtn.textContent = 'Restore';
-        archiveBtn.className = 'btn btn-warning';  // Yellow = Restore (Warning)
-    }
-    
     new bootstrap.Modal(document.getElementById('editMedicationModal')).show();
+}
+
+// Set medication as inactive
+async function setMedicationInactive() {
+    const medId = document.getElementById('editMedId').value;
+    const medName = document.getElementById('editMedName').value;
+    
+    if (confirm(`Are you sure you want to set ${medName} as Inactive?`)) {
+        try {
+            const response = await fetch(`${API_URL}/medications/${medId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    Active: 0
+                })
+            });
+            
+            if (!response.ok) throw new Error('Failed to set medication inactive');
+            
+            bootstrap.Modal.getInstance(document.getElementById('editMedicationModal')).hide();
+            loadMedicationsList();
+            alert(`${medName} has been set to Inactive`);
+            
+        } catch (error) {
+            console.error('Error setting medication inactive:', error);
+            alert('Error: ' + error.message);
+        }
+    }
 }
 
 // Archive medication from modal
