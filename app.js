@@ -210,6 +210,12 @@ async function loadMedicationsList() {
     try {
         const response = await fetch(`${API_URL}/medications?include_inactive=true`);
         const medications = await response.json();
+        
+        console.log('Medications loaded from API:');
+        medications.forEach(med => {
+            console.log(`  - ${med.MedicationName}: Active=${med.Active}`);
+        });
+        
         displayMedicationsList(medications);
     } catch (error) {
         console.error('Error loading medications list:', error);
