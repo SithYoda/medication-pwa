@@ -77,7 +77,7 @@ async function loadUserMedications() {
         loadMedicationsList();
         
         document.getElementById('summarySection').style.display = 'flex';
-        document.getElementById('mainTabs').style.display = 'block';
+        document.getElementById('mainTabs').style.display = 'flex';
         document.querySelectorAll('.content-section').forEach(s => s.style.display = 'none');
         document.getElementById('forecastSection').style.display = 'block';
         
