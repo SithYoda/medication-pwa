@@ -77,7 +77,7 @@ async function loadUserMedications() {
         loadMedicationsList();
         
         document.getElementById('summarySection').style.display = 'flex';
-        document.getElementById('mainTabs').style.display = 'flex';
+        document.getElementById('mainTabs').style.display = 'block';
         document.querySelectorAll('.content-section').forEach(s => s.style.display = 'none');
         document.getElementById('forecastSection').style.display = 'block';
         
@@ -185,8 +185,11 @@ async function saveMedicationChanges() {
         // Close modal
         bootstrap.Modal.getInstance(document.getElementById('medicationModal')).hide();
         
-        // Refresh medications from server
-        await loadUserMedications();
+        // Refresh medications list without changing tabs
+        const userResponse = await fetch(`${API_URL}/user-med-chart/user/${currentUserId}/summary`);
+        const data = await userResponse.json();
+        currentMedications = data.medications;
+        displayMedications();
         
         alert('Medication updated successfully');
         
