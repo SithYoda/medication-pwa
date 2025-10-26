@@ -252,7 +252,8 @@ async function medsPurchased() {
     }
 }
 
-// Save medication changes
+// Save settings
+function saveSettings() {
     const apiUrl = document.getElementById('apiUrlInput')?.value;
     if (apiUrl) {
         API_URL = apiUrl;
