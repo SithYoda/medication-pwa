@@ -74,6 +74,7 @@ async function loadUserMedications() {
         
         currentMedications = data.medications;
         displayMedications();
+        loadMedicationsList();
         
         document.getElementById('summarySection').style.display = 'flex';
         document.getElementById('mainTabs').style.display = 'block';
@@ -204,7 +205,110 @@ function saveSettings() {
     }
 }
 
-// Tab switching
+// Load medications master list
+async function loadMedicationsList() {
+    try {
+        const response = await fetch(`${API_URL}/medications?include_inactive=true`);
+        const medications = await response.json();
+        displayMedicationsList(medications);
+    } catch (error) {
+        console.error('Error loading medications list:', error);
+    }
+}
+
+// Display medications master list
+function displayMedicationsList(medications) {
+    const tbody = document.getElementById('medicationsListTable')?.getElementsByTagName('tbody')[0];
+    if (!tbody) return;
+    
+    tbody.innerHTML = '';
+    
+    medications.forEach(med => {
+        const row = tbody.insertRow();
+        const statusBadge = med.Active === 1 ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Archived</span>';
+        
+        row.innerHTML = `
+            <td>${med.MedicationName}</td>
+            <td>${med.CommonName}</td>
+            <td>${med.MedicationStrength}</td>
+            <td>${med.QtyRepeat}</td>
+            <td>$${(med.Price || 0).toFixed(2)}</td>
+            <td>${statusBadge}</td>
+            <td>
+                <button class="btn btn-sm btn-warning" onclick="editMedicationMaster(${med.MedIDs})" style="width: 40px;">
+                    <i class="bi bi-pencil"></i>
+                </button>
+                <button class="btn btn-sm btn-${med.Active === 1 ? 'danger' : 'success'}" onclick="toggleMedicationActive(${med.MedIDs})" style="width: 40px;">
+                    <i class="bi bi-${med.Active === 1 ? 'archive' : 'arrow-up-circle'}"></i>
+                </button>
+            </td>
+        `;
+    });
+}
+
+// Save new medication
+async function saveNewMedication() {
+    const name = document.getElementById('addMedName').value;
+    const commonName = document.getElementById('addMedCommonName').value;
+    const strength = document.getElementById('addMedStrength').value;
+    const qtyRepeat = parseInt(document.getElementById('addMedQtyRepeat').value);
+    const price = parseFloat(document.getElementById('addMedPrice').value) || 0;
+    
+    if (!name || !commonName || !strength || !qtyRepeat) {
+        alert('Please fill all required fields');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_URL}/medications`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                MedicationName: name,
+                CommonName: commonName,
+                MedicationStrength: strength,
+                QtyRepeat: qtyRepeat,
+                Price: price
+            })
+        });
+        
+        if (!response.ok) throw new Error('Failed to save medication');
+        
+        // Clear form
+        document.getElementById('addMedName').value = '';
+        document.getElementById('addMedCommonName').value = '';
+        document.getElementById('addMedStrength').value = '';
+        document.getElementById('addMedQtyRepeat').value = '';
+        document.getElementById('addMedPrice').value = '';
+        
+        bootstrap.Modal.getInstance(document.getElementById('addMedicationModal')).hide();
+        loadMedicationsList();
+        alert('Medication added successfully');
+        
+    } catch (error) {
+        console.error('Error saving medication:', error);
+        alert('Error saving medication: ' + error.message);
+    }
+}
+
+// Toggle medication active status
+async function toggleMedicationActive(medId) {
+    try {
+        const response = await fetch(`${API_URL}/medications/${medId}/toggle-active`, {
+            method: 'POST'
+        });
+        
+        if (!response.ok) throw new Error('Failed to toggle medication');
+        
+        loadMedicationsList();
+        alert('Medication status updated');
+        
+    } catch (error) {
+        console.error('Error toggling medication:', error);
+        alert('Error: ' + error.message);
+    }
+}
+
 function showTab(tabName) {
     document.querySelectorAll('.content-section').forEach(s => s.style.display = 'none');
     document.getElementById(tabName).style.display = 'block';
@@ -297,7 +401,7 @@ async function generateForecast() {
                         medicationsInPeriod.push({
                             name: med.MedicationName,
                             commonName: med.CommonName,
-                            quantity: med.PurchaseQuantity || 1,
+                            quantity: 1,  // Each purchase is 1 repeat
                             price: med.Price || 0,
                             runOutDate: med.calcRunOutDate
                         });
