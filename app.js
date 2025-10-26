@@ -239,7 +239,7 @@ function displayMedicationsList(medications) {
                 <button class="btn btn-sm btn-primary" onclick="editMedicationMaster(${med.MedIDs}, ${JSON.stringify(med).replace(/"/g, '&quot;')})" style="width: 40px;" title="Edit">
                     <i class="bi bi-pencil"></i>
                 </button>
-                <button class="btn btn-sm btn-${med.Active === 1 ? 'warning' : 'success'}" onclick="toggleMedicationActive(${med.MedIDs}, '${med.MedicationName}')" style="width: 40px;" title="${med.Active === 1 ? 'Archive' : 'Restore'}">
+                <button class="btn btn-sm btn-${med.Active === 1 ? 'success' : 'danger'}" onclick="toggleMedicationActive(${med.MedIDs}, '${med.MedicationName}')" style="width: 40px;" title="${med.Active === 1 ? 'Archive' : 'Restore'}">
                     <i class="bi bi-${med.Active === 1 ? 'archive' : 'arrow-counterclockwise'}"></i>
                 </button>
             </td>
@@ -296,18 +296,52 @@ async function saveNewMedication() {
 function editMedicationMaster(medId, med) {
     document.getElementById('editMedId').value = medId;
     document.getElementById('editMedName').value = med.MedicationName;
+    document.getElementById('editMedActive').value = med.Active;
+    document.getElementById('editMedNameDisplay').value = med.MedicationName;
     document.getElementById('editMedCommonName').value = med.CommonName;
     document.getElementById('editMedStrength').value = med.MedicationStrength;
     document.getElementById('editMedQtyRepeat').value = med.QtyRepeat;
     document.getElementById('editMedPrice').value = med.Price || 0;
     
+    // Update archive button text based on status
+    const archiveBtn = document.getElementById('editArchiveBtn');
+    if (med.Active === 1) {
+        archiveBtn.textContent = 'Archive';
+        archiveBtn.className = 'btn btn-danger';  // Red = Archive (Danger)
+    } else {
+        archiveBtn.textContent = 'Restore';
+        archiveBtn.className = 'btn btn-warning';  // Yellow = Restore (Warning)
+    }
+    
     new bootstrap.Modal(document.getElementById('editMedicationModal')).show();
+}
+
+// Archive medication from modal
+async function archiveFromModal() {
+    const medId = document.getElementById('editMedId').value;
+    const medName = document.getElementById('editMedName').value;
+    
+    try {
+        const response = await fetch(`${API_URL}/medications/${medId}/toggle-active`, {
+            method: 'POST'
+        });
+        
+        if (!response.ok) throw new Error('Failed to toggle medication');
+        
+        bootstrap.Modal.getInstance(document.getElementById('editMedicationModal')).hide();
+        loadMedicationsList();
+        alert(`${medName} has been archived/restored`);
+        
+    } catch (error) {
+        console.error('Error toggling medication:', error);
+        alert('Error: ' + error.message);
+    }
 }
 
 // Save edited medication
 async function saveEditedMedication() {
     const medId = document.getElementById('editMedId').value;
-    const name = document.getElementById('editMedName').value;
+    const name = document.getElementById('editMedNameDisplay').value;
     const commonName = document.getElementById('editMedCommonName').value;
     const strength = document.getElementById('editMedStrength').value;
     const qtyRepeat = parseInt(document.getElementById('editMedQtyRepeat').value);

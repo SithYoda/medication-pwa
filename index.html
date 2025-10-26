@@ -269,9 +269,11 @@
                 </div>
                 <div class="modal-body">
                     <input type="hidden" id="editMedId" />
+                    <input type="hidden" id="editMedName" />
+                    <input type="hidden" id="editMedActive" />
                     <div class="mb-3">
-                        <label for="editMedName" class="form-label">Medication Name</label>
-                        <input type="text" class="form-control" id="editMedName" />
+                        <label for="editMedNameDisplay" class="form-label">Medication Name</label>
+                        <input type="text" class="form-control" id="editMedNameDisplay" />
                     </div>
                     <div class="mb-3">
                         <label for="editMedCommonName" class="form-label">Common Name</label>
@@ -292,6 +294,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-danger" id="editArchiveBtn" onclick="archiveFromModal()">Archive</button>
                     <button type="button" class="btn btn-primary" onclick="saveEditedMedication()">Save Changes</button>
                 </div>
             </div>
