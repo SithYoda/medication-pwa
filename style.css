@@ -50,6 +50,39 @@ body {
     font-weight: 600;
 }
 
+/* Force tabs to display horizontally */
+#mainTabs {
+    display: flex !important;
+    flex-wrap: wrap;
+    border-bottom: 1px solid #dee2e6;
+    gap: 0;
+}
+
+#mainTabs .nav-item {
+    margin-bottom: -1px;
+}
+
+#mainTabs .nav-link {
+    border: 1px solid #dee2e6;
+    border-bottom: none;
+    border-radius: 0.25rem 0.25rem 0 0;
+    color: #6c757d;
+    text-decoration: none;
+    padding: 0.5rem 1rem;
+    display: block;
+}
+
+#mainTabs .nav-link:hover {
+    color: #0d6efd;
+}
+
+#mainTabs .nav-link.active {
+    color: #0d6efd;
+    font-weight: 600;
+    border-bottom: 2px solid white;
+    background-color: white;
+}
+
 .modal-fullscreen-sm-down {
     max-width: 100%;
 }
@@ -95,5 +128,10 @@ body {
     .nav-tabs .nav-link i {
         display: block;
         margin-bottom: 0.25rem;
+    }
+    
+    #mainTabs .nav-link {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.9rem;
     }
 }
