@@ -185,11 +185,8 @@ async function saveMedicationChanges() {
         // Close modal
         bootstrap.Modal.getInstance(document.getElementById('medicationModal')).hide();
         
-        // Refresh medications list without changing tabs
-        const userResponse = await fetch(`${API_URL}/user-med-chart/user/${currentUserId}/summary`);
-        const data = await userResponse.json();
-        currentMedications = data.medications;
-        displayMedications();
+        // Refresh medications from server
+        await loadUserMedications();
         
         alert('Medication updated successfully');
         
@@ -199,7 +196,63 @@ async function saveMedicationChanges() {
     }
 }
 
-function saveSettings() {
+// Meds Used - Reduce stock by weekly usage
+function medsUsed() {
+    if (!selectedMedication) return;
+    
+    const dosageAM = parseFloat(document.getElementById('medDosageAM').value) || 0;
+    const dosagePM = parseFloat(document.getElementById('medDosagePM').value) || 0;
+    const dosageWeekly = parseFloat(document.getElementById('medDosageWeekly').value) || 0;
+    
+    // Calculate weekly usage: (AM + PM) * 7 + once per week dosage
+    const weeklyUsage = (dosageAM + dosagePM) * 7 + dosageWeekly;
+    
+    if (weeklyUsage === 0) {
+        alert('Please set dosages first');
+        return;
+    }
+    
+    const currentStock = parseInt(document.getElementById('medStocktake').value) || 0;
+    const newStock = Math.max(0, currentStock - weeklyUsage);
+    
+    document.getElementById('medStocktake').value = newStock;
+    
+    alert(`Used ${weeklyUsage} pills this week. Stock reduced from ${currentStock} to ${newStock}`);
+}
+
+// Meds Purchased - Increase stock, decrease repeats
+async function medsPurchased() {
+    if (!selectedMedication || !currentUserId) return;
+    
+    const currentRepeats = parseInt(document.getElementById('medRepeats').value) || 0;
+    
+    if (currentRepeats <= 0) {
+        alert('No repeats available!');
+        return;
+    }
+    
+    // Get the medication's QtyRepeat from API
+    try {
+        const response = await fetch(`${API_URL}/medications/${selectedMedication.MedIDs}`);
+        const med = await response.json();
+        
+        const qtyRepeat = med.QtyRepeat || 0;
+        const currentStock = parseInt(document.getElementById('medStocktake').value) || 0;
+        const newStock = currentStock + qtyRepeat;
+        const newRepeats = currentRepeats - 1;
+        
+        document.getElementById('medStocktake').value = newStock;
+        document.getElementById('medRepeats').value = newRepeats;
+        
+        alert(`Purchased: Added ${qtyRepeat} pills to stock. Stock now: ${newStock}. Repeats remaining: ${newRepeats}`);
+        
+    } catch (error) {
+        console.error('Error getting medication details:', error);
+        alert('Error processing purchase');
+    }
+}
+
+// Save medication changes
     const apiUrl = document.getElementById('apiUrlInput')?.value;
     if (apiUrl) {
         API_URL = apiUrl;
@@ -516,9 +569,11 @@ async function generateForecast() {
                     if (runOutDate >= period.start && runOutDate <= period.end) {
                         medicationsInPeriod.push({
                             name: med.MedicationName,
+                            strength: med.MedicationStrength,
                             commonName: med.CommonName,
                             quantity: 1,  // Each purchase is 1 repeat
                             price: med.Price || 0,
+                            repeats: med.Repeats || 0,
                             runOutDate: med.calcRunOutDate
                         });
                         
@@ -580,7 +635,10 @@ function displayForecast(payPeriods) {
                             <tbody>
                                 ${period.medications.map(med => `
                                     <tr>
-                                        <td>${med.name}</td>
+                                        <td>
+                                            ${med.name} ${med.strength ? `<strong>${med.strength}</strong>` : ''}
+                                            ${med.repeats <= 2 ? `<span class="badge bg-danger">Low Repeats</span>` : ''}
+                                        </td>
                                         <td>${med.quantity}</td>
                                         <td>$${(med.price).toFixed(2)}</td>
                                         <td class="text-end">$${(med.price * med.quantity).toFixed(2)}</td>
