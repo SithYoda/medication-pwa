@@ -225,7 +225,8 @@ function displayMedicationsList(medications) {
     
     medications.forEach(med => {
         const row = tbody.insertRow();
-        const statusBadge = med.Active === 1 ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Archived</span>';
+        // Only show badge if archived, otherwise blank
+        const statusBadge = med.Active === 0 ? '<span class="badge bg-danger">Archived</span>' : '';
         
         row.innerHTML = `
             <td>${med.MedicationName}</td>
@@ -235,11 +236,11 @@ function displayMedicationsList(medications) {
             <td>$${(med.Price || 0).toFixed(2)}</td>
             <td>${statusBadge}</td>
             <td>
-                <button class="btn btn-sm btn-warning" onclick="editMedicationMaster(${med.MedIDs})" style="width: 40px;">
+                <button class="btn btn-sm btn-primary" onclick="editMedicationMaster(${med.MedIDs}, ${JSON.stringify(med).replace(/"/g, '&quot;')})" style="width: 40px;" title="Edit">
                     <i class="bi bi-pencil"></i>
                 </button>
-                <button class="btn btn-sm btn-${med.Active === 1 ? 'danger' : 'success'}" onclick="toggleMedicationActive(${med.MedIDs})" style="width: 40px;">
-                    <i class="bi bi-${med.Active === 1 ? 'archive' : 'arrow-up-circle'}"></i>
+                <button class="btn btn-sm btn-${med.Active === 1 ? 'warning' : 'success'}" onclick="toggleMedicationActive(${med.MedIDs}, '${med.MedicationName}')" style="width: 40px;" title="${med.Active === 1 ? 'Archive' : 'Restore'}">
+                    <i class="bi bi-${med.Active === 1 ? 'archive' : 'arrow-counterclockwise'}"></i>
                 </button>
             </td>
         `;
@@ -291,8 +292,59 @@ async function saveNewMedication() {
     }
 }
 
+// Edit medication master
+function editMedicationMaster(medId, med) {
+    document.getElementById('editMedId').value = medId;
+    document.getElementById('editMedName').value = med.MedicationName;
+    document.getElementById('editMedCommonName').value = med.CommonName;
+    document.getElementById('editMedStrength').value = med.MedicationStrength;
+    document.getElementById('editMedQtyRepeat').value = med.QtyRepeat;
+    document.getElementById('editMedPrice').value = med.Price || 0;
+    
+    new bootstrap.Modal(document.getElementById('editMedicationModal')).show();
+}
+
+// Save edited medication
+async function saveEditedMedication() {
+    const medId = document.getElementById('editMedId').value;
+    const name = document.getElementById('editMedName').value;
+    const commonName = document.getElementById('editMedCommonName').value;
+    const strength = document.getElementById('editMedStrength').value;
+    const qtyRepeat = parseInt(document.getElementById('editMedQtyRepeat').value);
+    const price = parseFloat(document.getElementById('editMedPrice').value) || 0;
+    
+    if (!name || !commonName || !strength || !qtyRepeat) {
+        alert('Please fill all required fields');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_URL}/medications/${medId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                MedicationName: name,
+                CommonName: commonName,
+                MedicationStrength: strength,
+                QtyRepeat: qtyRepeat,
+                Price: price
+            })
+        });
+        
+        if (!response.ok) throw new Error('Failed to save medication');
+        
+        bootstrap.Modal.getInstance(document.getElementById('editMedicationModal')).hide();
+        loadMedicationsList();
+        alert('Medication updated successfully');
+        
+    } catch (error) {
+        console.error('Error saving medication:', error);
+        alert('Error saving medication: ' + error.message);
+    }
+}
+
 // Toggle medication active status
-async function toggleMedicationActive(medId) {
+async function toggleMedicationActive(medId, medName) {
     try {
         const response = await fetch(`${API_URL}/medications/${medId}/toggle-active`, {
             method: 'POST'
@@ -301,7 +353,7 @@ async function toggleMedicationActive(medId) {
         if (!response.ok) throw new Error('Failed to toggle medication');
         
         loadMedicationsList();
-        alert('Medication status updated');
+        alert(`${medName} has been archived/restored`);
         
     } catch (error) {
         console.error('Error toggling medication:', error);
