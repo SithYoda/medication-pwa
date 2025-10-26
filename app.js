@@ -231,10 +231,11 @@ function displayMedicationsList(medications) {
     
     medications.forEach(med => {
         const row = tbody.insertRow();
-        // Show "Inactive" badge if Active === 0, otherwise blank
-        const statusBadge = med.Active === 0 ? '<span class="badge bg-danger">Inactive</span>' : '';
+        // Show "Inactive" badge if Active is false/0, otherwise blank
+        const isActive = med.Active === true || med.Active === 1;
+        const statusBadge = !isActive ? '<span class="badge bg-danger">Inactive</span>' : '';
         
-        console.log(`Med: ${med.MedicationName}, Active: ${med.Active}, Badge: ${med.Active === 0 ? 'Showing' : 'Not showing'}`);
+        console.log(`Med: ${med.MedicationName}, Active: ${med.Active}, isActive: ${isActive}, Badge: ${!isActive ? 'Showing' : 'Not showing'}`);
         
         row.innerHTML = `
             <td>${med.MedicationName}</td>
@@ -247,8 +248,8 @@ function displayMedicationsList(medications) {
                 <button class="btn btn-sm btn-primary" onclick="editMedicationMaster(${med.MedIDs}, ${JSON.stringify(med).replace(/"/g, '&quot;')})" style="width: 40px;" title="Edit">
                     <i class="bi bi-pencil"></i>
                 </button>
-                <button class="btn btn-sm btn-${med.Active === 1 ? 'success' : 'danger'}" onclick="toggleMedicationActive(${med.MedIDs}, '${med.MedicationName}')" style="width: 40px;" title="${med.Active === 1 ? 'Archive' : 'Restore'}">
-                    <i class="bi bi-${med.Active === 1 ? 'archive' : 'arrow-counterclockwise'}"></i>
+                <button class="btn btn-sm btn-${isActive ? 'success' : 'danger'}" onclick="toggleMedicationActive(${med.MedIDs}, '${med.MedicationName}')" style="width: 40px;" title="${isActive ? 'Archive' : 'Restore'}">
+                    <i class="bi bi-${isActive ? 'archive' : 'arrow-counterclockwise'}"></i>
                 </button>
             </td>
         `;
