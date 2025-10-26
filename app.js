@@ -225,8 +225,10 @@ function displayMedicationsList(medications) {
     
     medications.forEach(med => {
         const row = tbody.insertRow();
-        // Only show badge if archived, otherwise blank
-        const statusBadge = med.Active === 0 ? '<span class="badge bg-danger">Archived</span>' : '';
+        // Show "Inactive" badge if Active === 0, otherwise blank
+        const statusBadge = med.Active === 0 ? '<span class="badge bg-danger">Inactive</span>' : '';
+        
+        console.log(`Med: ${med.MedicationName}, Active: ${med.Active}, Badge: ${med.Active === 0 ? 'Showing' : 'Not showing'}`);
         
         row.innerHTML = `
             <td>${med.MedicationName}</td>
