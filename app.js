@@ -103,17 +103,24 @@ function displayMedications() {
         const row = tbody.insertRow();
         row.style.cursor = 'pointer';
         
-        // Determine stock status color and text
+        // Calculate stock status based on days remaining (convert to months)
         let stockStatusBadge = 'bg-success';
-        let stockStatusText = 'Good';
+        let stockStatusText = 'High';
         
-        if (med.StockStatus === 'critical') {
+        const daysRemaining = med.DaysRemaining || 0;
+        const monthsSupply = daysRemaining / 30; // Approximate: 1 month = 30 days
+        
+        if (monthsSupply < 1) {
+            stockStatusBadge = 'bg-dark';
+            stockStatusText = 'Very Low';
+        } else if (monthsSupply < 2) {
             stockStatusBadge = 'bg-danger';
             stockStatusText = 'Low';
-        } else if (med.StockStatus === 'low') {
+        } else if (monthsSupply < 3) {
             stockStatusBadge = 'bg-warning text-dark';
             stockStatusText = 'Medium';
         }
+        // else: High (default, > 3 months)
         
         // Determine repeats status color and text
         let repeatsStatusBadge = 'bg-success';
