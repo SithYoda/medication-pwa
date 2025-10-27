@@ -185,8 +185,11 @@ async function saveMedicationChanges() {
         // Close modal
         bootstrap.Modal.getInstance(document.getElementById('medicationModal')).hide();
         
-        // Refresh medications from server
-        await loadUserMedications();
+        // Refresh medications list without changing tabs
+        const userResponse = await fetch(`${API_URL}/user-med-chart/user/${currentUserId}/summary`);
+        const data = await userResponse.json();
+        currentMedications = data.medications;
+        displayMedications();
         
         alert('Medication updated successfully');
         
